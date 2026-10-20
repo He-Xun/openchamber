@@ -36,7 +36,10 @@ type SectionSpacing = keyof typeof SECTION_SPACING_ESTIMATE;
  * user's scroll gesture.
  */
 export const sessionSidebarRowSizeKey = (row: SessionSidebarRow): string => (
-  `${row.kind}:${'renderContext' in row ? row.renderContext : ''}`
+  // estimateSize splits one-line and two-line rows of the same context: a row
+  // that grew a second line (project/branch/ref) must not share measurements
+  // with a collapsed sibling.
+  `${row.kind}:${'renderContext' in row ? row.renderContext : ''}:${row.estimateSize}`
 );
 
 /**
@@ -68,8 +71,11 @@ export const estimateSessionSidebarRowSize = (
 export const sectionSpacingAfter = (row: SessionSidebarRow, nextRow: SessionSidebarRow | undefined): SectionSpacing | undefined => {
   // Zones (Chats, In work, Recent) and projects are sections of equal weight,
   // so each opens with the same gap. A worktree header opens a smaller one
-  // inside its project, so its sessions read as a group of their own.
+  // inside its project, so its sessions read as a group of their own. A
+  // project header keeps that same small gap before its children so the
+  // first session does not crowd the project title.
   const startsSection = nextRow?.kind === 'activity-header' || nextRow?.kind === 'project-header';
   if (startsSection) return 'pb-2';
-  return nextRow?.kind === 'group-header' && row.kind !== 'project-header' ? 'pb-1.5' : undefined;
+  if (row.kind === 'project-header' && nextRow) return 'pb-1.5';
+  return nextRow?.kind === 'group-header' ? 'pb-1.5' : undefined;
 };

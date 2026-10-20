@@ -583,7 +583,7 @@ const ChatViewport = React.memo(({
                     style={endFadeStyle}
                 />
                 <OverlayScrollbar containerRef={scrollRef} disableHorizontal suppressVisibility={isProgrammaticFollowActive} userIntentOnly observeMutations={false} onThumbDragStart={onScrollbarDrag} />
-                {showPromptNavigator && promptTurnIds.length >= 2 ? (
+                {showPromptNavigator && promptTurnIds.length >= 1 ? (
                     <PromptNavigatorRail
                         turnIds={promptTurnIds}
                         previewsByTurnId={promptPreviewsByTurnId}
@@ -1444,7 +1444,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
         && !isDesktopExpandedInput
         && promptNavigatorEnabled;
     const showPromptNavigator = promptRailEnabled
-        && timelineController.turnIds.length >= 2;
+        && timelineController.turnIds.length >= 1;
 
     React.useEffect(() => {
         if (!showPromptNavigator && !pinned) {

@@ -24,11 +24,12 @@ export type SessionSidebarActivityItem = {
 };
 
 // 'timeline' is the List view's one list of every project's sessions when it
-// sorts them by time.
-export type SessionSidebarActivityKey = 'pinned' | 'work' | 'chats' | 'timeline';
+// sorts them by time. 'projects' is the Tree/List Projects band that groups the
+// project headers (ChatGPT-style section label).
+export type SessionSidebarActivityKey = 'pinned' | 'work' | 'chats' | 'timeline' | 'projects';
 
 /** Activity sections; the display menu's Collapse all / Expand all drive them with the projects. */
-export const SIDEBAR_ACTIVITY_KEYS: readonly SessionSidebarActivityKey[] = ['chats', 'pinned', 'work', 'timeline'];
+export const SIDEBAR_ACTIVITY_KEYS: readonly SessionSidebarActivityKey[] = ['pinned', 'chats', 'projects', 'work', 'timeline'];
 
 // 'project' is a one-line file tree row of the grouped view. Timeline rows
 // have no left gutter and carry their status on the right: 'timeline' is a
@@ -235,14 +236,23 @@ export const countSessionSearchMatches = (nodes: readonly SessionNode[], normali
 
 const EMPTY_FOLDERS: readonly SessionFolder[] = [];
 const EMPTY_ZONE_SESSION_IDS: ReadonlySet<string> = new Set();
-const SESSION_ESTIMATE = 32;
+const SESSION_ESTIMATE = 36;
 const TIMELINE_SESSION_ESTIMATE = 52;
 // A third fixed line: the 20px title line and its 1px gap.
 const TIMELINE_THREE_LINE_ESTIMATE = TIMELINE_SESSION_ESTIMATE + 21;
-const estimateSessionRow = (context: SessionSidebarRenderContext): number => {
+const estimateSessionRow = (context: SessionSidebarRenderContext, hasSecondLine = false): number => {
   if (context === 'timeline-by-time') return TIMELINE_THREE_LINE_ESTIMATE;
-  return isMultiLineTimelineContext(context) ? TIMELINE_SESSION_ESTIMATE : SESSION_ESTIMATE;
+  if (isMultiLineTimelineContext(context)) return TIMELINE_SESSION_ESTIMATE;
+  // A collapsed one-line row; two-line rows (project/branch/ref on the
+  // second line) take the timeline height.
+  return hasSecondLine ? TIMELINE_SESSION_ESTIMATE : SESSION_ESTIMATE;
 };
+
+/** Second-line meta a session row will show as visible text (Codex-style two-line rows). */
+const sessionHasSecondLineMeta = (
+  node: SessionNode,
+  meta: { projectLabel?: string | null; branchLabel?: string | null } | null | undefined,
+): boolean => Boolean(meta?.branchLabel?.trim() || node.worktree?.branch?.trim());
 // Chats open on a short page in both views, with pinned chats on top of it.
 const CHATS_INITIAL_LIMIT = 3;
 const CHATS_INCREMENT = 7;
@@ -270,6 +280,7 @@ const treeLevelOf = (row: SessionSidebarRow): number | null => {
   }
 };
 
+
 const compareNodes = (
   left: SessionNode,
   right: SessionNode,
@@ -283,6 +294,8 @@ const compareNodes = (
     if (rightIndex === undefined) return -1;
     if (leftIndex !== rightIndex) return leftIndex - rightIndex;
   }
+  // Pinned sessions also stay in their project, sorted to the top of it
+  // (ChatGPT-style: the same chat lives in Pinned and under its project).
   return compareSessionsByLifecycleOrder(left.session, right.session, pinnedSessionIds, EMPTY_SESSION_ORDER_RANKS);
 };
 
@@ -418,7 +431,8 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
     push({
       kind: 'run',
       key: keyFor(`${options.containerKey}:run:${entry.run.key}`),
-      estimateSize: estimateSessionRow(options.renderContext),
+      // Timeline runs always carry their lane count on a second line.
+      estimateSize: estimateSessionRow(options.renderContext, options.renderContext !== 'project'),
       run: entry.run,
       depth: options.baseDepth ?? 0,
       laneNodes: Object.freeze([...entry.lanes]),
@@ -448,10 +462,16 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
       const rowKey = keyFor(`${options.containerKey}:session:${current.node.session.id}`);
       const directory = current.node.session.directory ?? current.directory;
       sessionById.set(current.node.session.id, current.node.session);
+      const rowMeta = options.getSecondaryMeta
+        ? options.getSecondaryMeta(current.node.session.id)
+        : options.secondaryMeta ?? null;
       push({
         kind: 'session',
         key: rowKey,
-        estimateSize: estimateSessionRow(options.renderContext),
+        estimateSize: estimateSessionRow(
+          options.renderContext,
+          sessionHasSecondLineMeta(current.node, current.depth === baseDepth ? rowMeta : options.secondaryMeta),
+        ),
         node: current.node,
         blockingBadgeSessionScopes: current.depth === baseDepth
           ? options.getBlockingBadgeSessionScopes?.(current.node.session.id) ?? options.blockingBadgeSessionScopes
@@ -463,9 +483,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
         selectionScopeKey: options.selectionScopeKey,
         archived: options.archived,
         renderContext: options.renderContext,
-        secondaryMeta: options.getSecondaryMeta
-          ? options.getSecondaryMeta(current.node.session.id)
-          : options.secondaryMeta ?? null,
+        secondaryMeta: rowMeta,
       });
       const subtreeRange = options.indexedNodes?.subtreeRangeByNode.get(current.node);
       const descendantRange = subtreeRange && subtreeRange[1] > subtreeRange[0] + 1
@@ -521,9 +539,9 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
     for (const [id, session] of indexed.sessionsById) sessionById.set(id, session);
     const ownerKey = getSessionFolderOwnerKey(projectId, group.directory);
     const storedCollapsed = !search && args.collapsedGroups.has(groupKey);
-    // A worktree, space or archive header is a tree node of its own: its
-    // folders and sessions sit one level under it. The project root group has
-    // no header, so its contents sit right under the project.
+    // Project contents share the project label's text line (26px) so a
+    // single-line title lines up with the project name; deeper nodes step
+    // one indent from there. Chats sit at the zone root (depth 0).
     const contentDepth = hideHeader ? 0 : 1;
     // Chats render gutterless rows in List; in Tree they keep the slot.
     const flat = limits !== undefined && !hasTreeSlotContext(limits.renderContext);
@@ -703,6 +721,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
     entry: ActivityRunEntry,
     containerKey: string,
     renderContext: SessionSidebarRenderContext,
+    baseDepth = 0,
   ): void => {
     const first = entry.items[0];
     if (!first) return;
@@ -718,7 +737,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
     const badgeScopesById = new Map(entry.items.map((item) => [item.node.session.id, item.blockingBadgeSessionScopes]));
     appendRun({ run: entry.run, lanes }, {
       nodes: lanes, containerKey, projectId: first.projectId, groupDirectory: first.groupDirectory,
-      ownerKey, selectionScopeKey: null, archived: false, renderContext,
+      ownerKey, selectionScopeKey: null, archived: false, renderContext, baseDepth,
       getSecondaryMeta: (sessionId) => metaById.get(sessionId) ?? null,
       getBlockingBadgeSessionScopes: (sessionId) => badgeScopesById.get(sessionId),
       indexedNodes: indexed, selectionPoolOffset,
@@ -730,10 +749,11 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
     containerKey: string,
     renderContext: SessionSidebarRenderContext,
     countMatches: (item: SessionSidebarActivityItem) => number = () => 1,
+    baseDepth = 0,
   ): void => {
     for (const entry of collapseActivityItems(items)) {
       if (isActivityRunEntry(entry)) {
-        appendActivityRun(entry, containerKey, renderContext);
+        appendActivityRun(entry, containerKey, renderContext, baseDepth);
         if (search) searchMatchCount += entry.items.reduce((total, item) => total + countMatches(item), 0);
         continue;
       }
@@ -745,7 +765,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
       appendSessions({
         nodes: [item.node], containerKey, projectId: item.projectId, groupDirectory: item.groupDirectory,
         // In work and the timeline lists carry no selection scope.
-        ownerKey, selectionScopeKey: null, archived: false, renderContext,
+        ownerKey, selectionScopeKey: null, archived: false, renderContext, baseDepth,
         blockingBadgeSessionScopes: item.blockingBadgeSessionScopes,
         secondaryMeta: item.secondaryMeta, getSecondaryMeta: item.getSecondaryMeta, indexedNodes: indexed, selectionPoolOffset,
       });
@@ -753,6 +773,44 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
     }
   };
 
+  // Pinned and In work list sessions of every project together. One-line
+  // rows (ChatGPT/Codex-style): the two-line form with a project icon on the
+  // second line read as decoration and made the list harder to scan.
+  const timeList = timelineMode && args.listGrouping === 'time';
+  const zoneRenderContext: SessionSidebarRenderContext = 'mixed-compact';
+
+  /**
+   * A list that reveals `initial` entries, then `increment` more per Show
+   * more. A run spends one slot; search lists everything.
+   */
+  const appendRevealedItems = (
+    items: readonly SessionSidebarActivityItem[],
+    containerKey: string,
+    renderContext: SessionSidebarRenderContext,
+    initialLimit: number,
+    increment: number,
+    baseDepth = 0,
+  ): void => {
+    const requested = Math.max(initialLimit, args.visibleCountByContainer.get(containerKey) ?? initialLimit);
+    const entries = collapseActivityItems(items);
+    const visibleEntries = search ? entries : entries.slice(0, requested);
+    appendActivityItems(visibleEntries.flatMap((entry) => isActivityRunEntry(entry) ? entry.items : [entry]), containerKey, renderContext, undefined, baseDepth);
+    if (search) return;
+    if (entries.length > visibleEntries.length) push({ kind: 'show-control', key: `${containerKey}:more`, estimateSize: STATUS_ESTIMATE, control: 'more', containerKey, currentCount: visibleEntries.length, increment, flat: true });
+    else if (entries.length > initialLimit) push({ kind: 'show-control', key: `${containerKey}:fewer`, estimateSize: STATUS_ESTIMATE, control: 'fewer', containerKey, currentCount: visibleEntries.length, increment, flat: true });
+  };
+
+  // Codex-style order: Pinned → Chats → Projects (project trees) → In work at
+  // the bottom. A tree is listed for its matching subsession too; the
+  // ancestors around it are context, so only real matches count.
+  const appendZone = (activityKey: 'pinned' | 'work', items: readonly SessionSidebarActivityItem[]): void => {
+    if (items.length === 0) return;
+    const collapsed = appendActivityHeader(activityKey);
+    if (!collapsed) appendActivityItems(items, `activity:${activityKey}`, zoneRenderContext, (item) => item.searchMatchCount ?? countSessionTreeQueryMatches(item.node, args.normalizedQuery));
+  };
+  appendZone('pinned', args.pinnedItems ?? []);
+
+  // Chats sit just under Pinned, before the project tree.
   if (args.chatGroup) {
     if (!search || groupSearchMatches(args.chatGroup) > 0) {
       const collapsed = appendActivityHeader('chats');
@@ -766,127 +824,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
       }
     }
   }
-
-  // Pinned and In work list sessions of every project together: two-line
-  // rows with the project's icon in List, one-line rows in Tree unless the
-  // user asked for detailed rows. Over the list by time they take its
-  // three-line rows, so the zones and the list below share one row height.
-  const timeList = timelineMode && args.listGrouping === 'time';
-  const zoneRenderContext: SessionSidebarRenderContext = timeList
-    ? 'timeline-by-time'
-    : timelineMode || args.detailedZoneRows ? 'timeline-mixed' : 'mixed-compact';
-
-  /**
-   * A list that reveals `initial` entries, then `increment` more per Show
-   * more. A run spends one slot; search lists everything.
-   */
-  const appendRevealedItems = (
-    items: readonly SessionSidebarActivityItem[],
-    containerKey: string,
-    renderContext: SessionSidebarRenderContext,
-    initialLimit: number,
-    increment: number,
-  ): void => {
-    const requested = Math.max(initialLimit, args.visibleCountByContainer.get(containerKey) ?? initialLimit);
-    const entries = collapseActivityItems(items);
-    const visibleEntries = search ? entries : entries.slice(0, requested);
-    appendActivityItems(visibleEntries.flatMap((entry) => isActivityRunEntry(entry) ? entry.items : [entry]), containerKey, renderContext);
-    if (search) return;
-    if (entries.length > visibleEntries.length) push({ kind: 'show-control', key: `${containerKey}:more`, estimateSize: STATUS_ESTIMATE, control: 'more', containerKey, currentCount: visibleEntries.length, increment, flat: true });
-    else if (entries.length > initialLimit) push({ kind: 'show-control', key: `${containerKey}:fewer`, estimateSize: STATUS_ESTIMATE, control: 'fewer', containerKey, currentCount: visibleEntries.length, increment, flat: true });
-  };
-
-  // Pinned and then In work sit under Chats and above the projects. A tree
-  // is listed for its matching subsession too; the ancestors around it are
-  // context, so only real matches count.
-  const appendZone = (activityKey: 'pinned' | 'work', items: readonly SessionSidebarActivityItem[]): void => {
-    if (items.length === 0) return;
-    const collapsed = appendActivityHeader(activityKey);
-    if (!collapsed) appendActivityItems(items, `activity:${activityKey}`, zoneRenderContext, (item) => item.searchMatchCount ?? countSessionTreeQueryMatches(item.node, args.normalizedQuery));
-  };
-  appendZone('pinned', args.pinnedItems ?? []);
-  appendZone('work', args.workItems ?? []);
-
-  if (timeList) {
-    // One list of every project's root sessions in lifecycle order, pinned
-    // first, under one zone header. It is virtualized, so it reveals all of
-    // them at once. A session the Pinned or In work zone lists is left out
-    // here, so each session shows once.
-    const items = (args.timelineItems ?? []).filter((item) => item.projectId && !inZone.has(item.node.session.id));
-    if (items.length > 0) {
-      const collapsed = appendActivityHeader('timeline');
-      if (!collapsed) appendActivityItems(items, 'activity:timeline', 'timeline-by-time');
-    }
-    // The list has no project headers to hold a load status, so it closes
-    // with one line per distinct status of a project it lists nothing for,
-    // as a project header would: one while any loads, and one per failure,
-    // whose Retry reloads that directory or the global list.
-    if (!search && !(items.length > 0 && args.collapsedActivities.has('timeline'))) {
-      const listedProjects = new Set((args.timelineItems ?? []).map((item) => item.projectId));
-      const shown = new Set<string>();
-      for (const section of args.sections) {
-        if (listedProjects.has(section.project.id)) continue;
-        const mainGroup = section.groups.find((group) => group.isMain);
-        if (!mainGroup) continue;
-        const groupKey = `${section.project.id}:${mainGroup.id}`;
-        const status = args.groupStatusByKey.get(groupKey);
-        if (!status || status.state === 'ready') continue;
-        const identity = status.state === 'loading' ? 'loading' : `${status.state}:${status.directory ?? ''}`;
-        if (shown.has(identity)) continue;
-        shown.add(identity);
-        push({ kind: 'status', key: `activity:timeline:status:${groupKey}`, estimateSize: STATUS_ESTIMATE, status, group: mainGroup, groupKey, flat: true });
-      }
-    }
-  } else if (timelineMode) {
-    // One header per project, in the user's manual order, over its root
-    // sessions from every worktree in lifecycle order. A session the Pinned
-    // zone lists is left out of its project here; In work keeps it in both.
-    const pinnedZoneIds = new Set((args.pinnedItems ?? []).map((item) => item.node.session.id));
-    const itemsByProject = new Map<string, SessionSidebarActivityItem[]>();
-    for (const item of args.timelineItems ?? []) {
-      if (!item.projectId || isMovedToZone(item.node.session.id) || pinnedZoneIds.has(item.node.session.id)) continue;
-      const list = itemsByProject.get(item.projectId);
-      if (list) list.push(item);
-      else itemsByProject.set(item.projectId, [item]);
-    }
-    for (const section of args.sections) {
-      const projectId = section.project.id;
-      const items = itemsByProject.get(projectId) ?? [];
-      if (search && items.length === 0) continue;
-      const collapsed = !search && args.collapsedProjects.has(projectId);
-      const rowIndex = rows.length;
-      push({ kind: 'project-header', key: `project:${projectId}:header`, estimateSize: HEADER_ESTIMATE, section, collapsed, forceExpanded: search });
-      stickyHeaders.push(Object.freeze({ rowIndex, kind: 'project', id: projectId }));
-      if (collapsed) continue;
-      // A space without chats has no row of its own here, so its group header
-      // stands in for it, with the space's state, until its first chat
-      // (journey step 2: the space shows under its project at once).
-      if (!search) {
-        for (const group of section.groups) {
-          if (!group.space || group.sessions.length > 0) continue;
-          const groupKey = `${projectId}:${group.id}`;
-          // While its chats load the space may well have some; a failed load
-          // shows its line, as in the Tree, never an empty space.
-          const status = args.groupStatusByKey.get(groupKey);
-          if (status?.state === 'loading') continue;
-          const empty = (!status || status.state === 'ready')
-            && getSessionFolderScopes(group).every(({ scopeKey }) => (args.foldersMap[scopeKey] ?? EMPTY_FOLDERS).length === 0);
-          // Forced open: it hides nothing and, like every List row, is not dragged.
-          push({ kind: 'group-header', key: `${groupKey}:header`, estimateSize: HEADER_ESTIMATE, group, groupKey, projectId, collapsed: false, forceExpanded: true, empty, allSessions: Object.freeze([]) });
-          if (status && status.state !== 'ready') push({ kind: 'status', key: `${groupKey}:status`, estimateSize: STATUS_ESTIMATE, status, group, groupKey, flat: true });
-        }
-      }
-      if (items.length > 0) {
-        appendRevealedItems(items, timelineProjectContainerKey(projectId), 'timeline', SESSIONS_INITIAL_LIMIT, SESSIONS_INCREMENT);
-        continue;
-      }
-      const mainGroup = section.groups.find((group) => group.isMain);
-      if (!mainGroup) continue;
-      const groupKey = `${projectId}:${mainGroup.id}`;
-      const status = args.groupStatusByKey.get(groupKey);
-      if (status && status.state !== 'ready') push({ kind: 'status', key: `${groupKey}:status`, estimateSize: STATUS_ESTIMATE, status, group: mainGroup, groupKey, flat: true });
-    }
-  }
+  // Work is appended after the project sections below.
 
   let projectSections = timelineMode ? [] : args.singleProjectMode
     ? args.sections.filter((section) => section.project.id === args.singleProjectId)
@@ -895,19 +833,124 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
     const active = projectSections.find((section) => section.project.id === args.activeProjectId) ?? projectSections[0];
     projectSections = active ? [active] : [];
   }
-  for (const section of projectSections) {
-    const descriptors = buildGroupRenderDescriptors(section, { mainWorkspaceOnly: args.showOnlyMainWorkspace });
-    // A project whose only matches moved to a zone shows no empty header.
-    if (search && !descriptors.some((descriptor) => groupSearchMatches(descriptor.group) > 0)) continue;
-    const projectCollapsed = !search && !args.singleProjectMode && !args.showOnlyMainWorkspace && args.collapsedProjects.has(section.project.id);
-    if (!args.showOnlyMainWorkspace) {
-      const rowIndex = rows.length;
-      push({ kind: 'project-header', key: `project:${section.project.id}:header`, estimateSize: HEADER_ESTIMATE, section, collapsed: projectCollapsed, forceExpanded: search });
-      stickyHeaders.push(Object.freeze({ rowIndex, kind: 'project', id: section.project.id }));
+
+  // Projects band over every project header/list, so new projects land under it
+  // instead of looking like root-level peers of Chats/Pinned (ChatGPT).
+  const hasProjectsContent = projectSections.length > 0
+    || (timelineMode && (args.timelineItems?.length ?? 0) > 0)
+    || (timelineMode && args.sections.length > 0);
+  const showProjectsBand = hasProjectsContent && !search && !args.singleProjectMode && !args.showOnlyMainWorkspace;
+  const projectsBandCollapsed = showProjectsBand && appendActivityHeader('projects');
+
+  if (!projectsBandCollapsed) {
+    if (timeList) {
+      // One list of every project's root sessions in lifecycle order, pinned
+      // first, under one zone header. It is virtualized, so it reveals all of
+      // them at once. A session the Pinned or In work zone lists is left out
+      // here, so each session shows once.
+      const items = (args.timelineItems ?? []).filter((item) => item.projectId && !inZone.has(item.node.session.id));
+      if (items.length > 0) {
+        const collapsed = appendActivityHeader('timeline');
+        if (!collapsed) appendActivityItems(items, 'activity:timeline', 'timeline-by-time');
+      }
+      // The list has no project headers to hold a load status, so it closes
+      // with one line per distinct status of a project it lists nothing for,
+      // as a project header would: one while any loads, and one per failure,
+      // whose Retry reloads that directory or the global list.
+      if (!search && !(items.length > 0 && args.collapsedActivities.has('timeline'))) {
+        const listedProjects = new Set((args.timelineItems ?? []).map((item) => item.projectId));
+        const shown = new Set<string>();
+        for (const section of args.sections) {
+          if (listedProjects.has(section.project.id)) continue;
+          const mainGroup = section.groups.find((group) => group.isMain);
+          if (!mainGroup) continue;
+          const groupKey = `${section.project.id}:${mainGroup.id}`;
+          const status = args.groupStatusByKey.get(groupKey);
+          if (!status || status.state === 'ready') continue;
+          const identity = status.state === 'loading' ? 'loading' : `${status.state}:${status.directory ?? ''}`;
+          if (shown.has(identity)) continue;
+          shown.add(identity);
+          push({ kind: 'status', key: `activity:timeline:status:${groupKey}`, estimateSize: STATUS_ESTIMATE, status, group: mainGroup, groupKey, flat: true });
+        }
+      }
+    } else if (timelineMode) {
+      // One header per project, in the user's manual order, over its root
+      // sessions from every worktree in lifecycle order. A session the Pinned
+      // zone lists also stays under its project, at the top of it; In work
+      // keeps its sessions in both too.
+      const pinnedZoneIds = new Set((args.pinnedItems ?? []).map((item) => item.node.session.id));
+      const itemsByProject = new Map<string, SessionSidebarActivityItem[]>();
+      for (const item of args.timelineItems ?? []) {
+        if (!item.projectId || isMovedToZone(item.node.session.id)) continue;
+        const list = itemsByProject.get(item.projectId);
+        if (list) list.push(item);
+        else itemsByProject.set(item.projectId, [item]);
+      }
+      // Pinned first inside each project, then the lifecycle order.
+      for (const list of itemsByProject.values()) {
+        list.sort((left, right) => {
+          const leftPinned = pinnedZoneIds.has(left.node.session.id);
+          const rightPinned = pinnedZoneIds.has(right.node.session.id);
+          return leftPinned === rightPinned ? 0 : leftPinned ? -1 : 1;
+        });
+      }
+      for (const section of args.sections) {
+        const projectId = section.project.id;
+        const items = itemsByProject.get(projectId) ?? [];
+        if (search && items.length === 0) continue;
+        const collapsed = !search && args.collapsedProjects.has(projectId);
+        const rowIndex = rows.length;
+        push({ kind: 'project-header', key: `project:${projectId}:header`, estimateSize: HEADER_ESTIMATE, section, collapsed, forceExpanded: search });
+        stickyHeaders.push(Object.freeze({ rowIndex, kind: 'project', id: projectId }));
+        if (collapsed) continue;
+        // A space without chats has no row of its own here, so its group header
+        // stands in for it, with the space's state, until its first chat
+        // (journey step 2: the space shows under its project at once).
+        if (!search) {
+          for (const group of section.groups) {
+            if (!group.space || group.sessions.length > 0) continue;
+            const groupKey = `${projectId}:${group.id}`;
+            // While its chats load the space may well have some; a failed load
+            // shows its line, as in the Tree, never an empty space.
+            const status = args.groupStatusByKey.get(groupKey);
+            if (status?.state === 'loading') continue;
+            const empty = (!status || status.state === 'ready')
+              && getSessionFolderScopes(group).every(({ scopeKey }) => (args.foldersMap[scopeKey] ?? EMPTY_FOLDERS).length === 0);
+            // Forced open: it hides nothing and, like every List row, is not dragged.
+            push({ kind: 'group-header', key: `${groupKey}:header`, estimateSize: HEADER_ESTIMATE, group, groupKey, projectId, collapsed: false, forceExpanded: true, empty, allSessions: Object.freeze([]) });
+            if (status && status.state !== 'ready') push({ kind: 'status', key: `${groupKey}:status`, estimateSize: STATUS_ESTIMATE, status, group, groupKey, flat: true });
+          }
+        }
+        if (items.length > 0) {
+          // Same text line as the project label, so single-line titles align.
+          appendRevealedItems(items, timelineProjectContainerKey(projectId), 'timeline-chat', SESSIONS_INITIAL_LIMIT, SESSIONS_INCREMENT, 0);
+          continue;
+        }
+        const mainGroup = section.groups.find((group) => group.isMain);
+        if (!mainGroup) continue;
+        const groupKey = `${projectId}:${mainGroup.id}`;
+        const status = args.groupStatusByKey.get(groupKey);
+        if (status && status.state !== 'ready') push({ kind: 'status', key: `${groupKey}:status`, estimateSize: STATUS_ESTIMATE, status, group: mainGroup, groupKey, flat: true });
+      }
     }
-    if (projectCollapsed) continue;
-    for (const descriptor of descriptors) appendGroup(descriptor.group, descriptor.groupKey, descriptor.projectId, descriptor.hideGroupLabel);
+
+    for (const section of projectSections) {
+      const descriptors = buildGroupRenderDescriptors(section, { mainWorkspaceOnly: args.showOnlyMainWorkspace });
+      // A project whose only matches moved to a zone shows no empty header.
+      if (search && !descriptors.some((descriptor) => groupSearchMatches(descriptor.group) > 0)) continue;
+      const projectCollapsed = !search && !args.singleProjectMode && !args.showOnlyMainWorkspace && args.collapsedProjects.has(section.project.id);
+      if (!args.showOnlyMainWorkspace) {
+        const rowIndex = rows.length;
+        push({ kind: 'project-header', key: `project:${section.project.id}:header`, estimateSize: HEADER_ESTIMATE, section, collapsed: projectCollapsed, forceExpanded: search });
+        stickyHeaders.push(Object.freeze({ rowIndex, kind: 'project', id: section.project.id }));
+      }
+      if (projectCollapsed) continue;
+      for (const descriptor of descriptors) appendGroup(descriptor.group, descriptor.groupKey, descriptor.projectId, descriptor.hideGroupLabel);
+    }
   }
+
+  // In work sits at the bottom, under the projects (ChatGPT's Recent slot).
+  appendZone('work', args.workItems ?? []);
 
   if (rows.length === 0) {
     push({ kind: 'empty', key: search ? 'sidebar:search-empty' : 'sidebar:empty', estimateSize: 72, emptyKind: search ? 'search' : 'sidebar' });

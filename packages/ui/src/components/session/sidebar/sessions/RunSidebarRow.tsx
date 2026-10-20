@@ -12,11 +12,11 @@ import { isMultiLineTimelineContext, type SessionSidebarRenderContext } from '..
 import { formatSessionCompactDateLabel } from '../utils';
 import { CollapsedSessionActivityIndicator } from './collapsedActivityIndicator';
 import { SessionTimelineRowBody } from './SessionTimelineRowBody';
-import { sessionTreeRowPaddingLeft } from './sessionTreeGeometry';
+import { sessionTimelineRowPaddingLeft, sessionTreeRowPaddingLeft } from './sessionTreeGeometry';
 
 // Timeline rows have no gutter; grouped rows are file tree rows, like the
 // session rows around them.
-const TIMELINE_ROW_LEFT_PX = 10;
+// Matches SessionNodeItem: 26px, level with project/zone header labels.
 const MAX_LOGOS = 4;
 
 type Props = {
@@ -63,15 +63,19 @@ function RunSidebarRowComponent({
 }: Props): React.ReactNode {
   const { t } = useI18n();
   const isActive = useUIStore((state) => state.runOverviewKey === run.key);
-  // The Tree view's Pinned and In work rows are flat too, on one line.
-  const isOneLineRow = renderContext === 'mixed-compact';
-  const isTimelineRow = isMultiLineTimelineContext(renderContext) || isOneLineRow;
+  // Project-tree runs stay expandable gutter rows; every other run is a
+  // timeline row. Their second line always carries the lane count, so they
+  // render two lines (Codex-style) instead of collapsing to one.
+  const isTimelineRow = isMultiLineTimelineContext(renderContext) || renderContext !== 'project';
+  const isOneLineRow = false;
   // The list by time names the project on a first line of its own.
   const hasProjectLine = renderContext === 'timeline-by-time';
   // Only Pinned, In work and the list by time mix projects; under a project
   // header the row needs no icon.
   const timelineProject = useProjectsStore(React.useCallback((state) => (
-    (renderContext === 'timeline-mixed' || hasProjectLine) && projectId ? state.projects.find((entry) => entry.id === projectId) ?? null : null
+    (renderContext === 'timeline-mixed' || renderContext === 'mixed-compact' || hasProjectLine) && projectId
+      ? state.projects.find((entry) => entry.id === projectId) ?? null
+      : null
   ), [hasProjectLine, renderContext, projectId]));
   const laneCount = run.lanes.length;
   const laneCountLabel = laneCount === 1
@@ -95,9 +99,9 @@ function RunSidebarRowComponent({
         onClick={openOverview}
         // The Tree view's one-line rows keep the tree slot for their state,
         // like the session rows beside them; List rows stay flat.
-        style={{ paddingInlineStart: isOneLineRow ? sessionTreeRowPaddingLeft(depth) : TIMELINE_ROW_LEFT_PX }}
+        style={{ paddingInlineStart: isOneLineRow ? sessionTreeRowPaddingLeft(depth) : sessionTimelineRowPaddingLeft(depth) }}
         className={cn(
-          'group relative my-0.5 flex w-full cursor-pointer items-center rounded-md pe-2.5 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          'group relative my-1 flex w-full cursor-pointer items-center rounded-md pe-2.5 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           isOneLineRow ? 'gap-1.5 py-1' : 'py-1.5',
           isActive ? 'bg-interactive-selection/70 text-interactive-selection-foreground' : 'hover:bg-interactive-hover/60',
         )}
@@ -142,7 +146,7 @@ function RunSidebarRowComponent({
       onClick={openOverview}
       style={{ paddingInlineStart: sessionTreeRowPaddingLeft(depth) }}
       className={cn(
-        'group relative my-0.5 flex cursor-pointer items-center gap-1.5 rounded-md py-[3px] pe-2.5',
+        'group relative my-1 flex cursor-pointer items-center gap-1.5 rounded-md py-1 pe-2.5',
         isActive ? 'bg-interactive-selection/70 text-interactive-selection-foreground' : 'hover:bg-interactive-hover/60',
       )}
     >

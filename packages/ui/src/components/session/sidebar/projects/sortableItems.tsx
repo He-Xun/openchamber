@@ -53,6 +53,7 @@ const ProjectHeaderIdentity: React.FC<ProjectHeaderIdentityProps> = ({
 }) => {
   const { currentTheme } = useThemeSystem();
   const projectIconName = projectIcon ? PROJECT_ICON_MAP[projectIcon] : null;
+  // Custom project colours still apply; a project with no colour stays neutral.
   const iconColor = resolveProjectColor(projectColor);
   const hasCollapseControl = isCollapsed !== undefined;
   // The project icon cross-fades into the collapse chevron on hover.
@@ -97,12 +98,13 @@ const ProjectHeaderIdentity: React.FC<ProjectHeaderIdentityProps> = ({
         ) : projectIconName ? (
           <Icon name={projectIconName} className={cn('h-3.5 w-3.5', iconVisibilityClassName)} style={iconColor ? { color: iconColor } : undefined} />
         ) : (
+          // Neutral folder by default; a custom project colour tints it.
           <Icon name="folder" className={cn('h-3.5 w-3.5 text-muted-foreground/80', iconVisibilityClassName)} style={iconColor ? { color: iconColor } : undefined} />
         )}
       </span>
       {/* One size up from rows: projects and zones are the top level of the
           tree, above semibold-free worktree and folder headers. */}
-      <span className={cn('truncate typography-ui-header font-semibold text-foreground', labelClassName)}>{projectLabel}</span>
+      <span className={cn('truncate typography-ui-header font-medium text-foreground', labelClassName)}>{projectLabel}</span>
     </>
   );
 };
@@ -329,7 +331,7 @@ export const SortableProjectItem: React.FC<SortableProjectItemProps> = ({
               }
             >
             <div
-              className="relative flex items-center gap-1 py-1 ps-4 pe-3.5"
+              className="relative flex items-center gap-1.5 py-1 ps-4 pe-3.5"
               {...attributes}
             >
               {isProjectPicker ? (

@@ -4,14 +4,12 @@ import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
 import type { SessionSidebarActivityKey } from './sessionSidebarRowModel';
 
-// The list by time holds every project's sessions, so it is titled Projects;
-// its clock icon says how it is ordered.
-const ACTIVITY_ICON = { pinned: 'pushpin', work: 'eye', chats: 'chat-4', timeline: 'history' } as const;
 const ACTIVITY_TITLE_KEY = {
   pinned: 'sessions.sidebar.activity.pinnedTitle',
   work: 'sessions.sidebar.work.title',
   chats: 'sessions.sidebar.activity.chatsTitle',
   timeline: 'sessions.sidebar.activity.projectsTitle',
+  projects: 'sessions.sidebar.activity.projectsTitle',
 } as const;
 
 export const SessionSidebarActivityHeader: React.FC<{
@@ -33,14 +31,15 @@ export const SessionSidebarActivityHeader: React.FC<{
       className={cn('group flex w-full items-center gap-1.5 py-1 ps-4 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50', chats ? 'pe-10' : 'pe-3.5')}
       aria-expanded={!collapsed}
     >
+      {/* Chevron only — a zone icon beside project folder icons is noise.
+          GPT section headers are plain label + chevron. */}
       <span className="inline-flex h-3.5 w-3.5 items-center justify-center">
-        <Icon name={ACTIVITY_ICON[activityKey]} className={cn('h-3.5 w-3.5 text-muted-foreground/80', !forceExpanded && 'group-hover:hidden')} />
-        {!forceExpanded ? <span className="hidden h-3.5 w-3.5 items-center justify-center text-muted-foreground group-hover:inline-flex">
-          <Icon name={collapsed ? 'arrow-right-s' : 'arrow-down-s'} className="h-3.5 w-3.5" />
-        </span> : null}
+        {!forceExpanded ? (
+          <Icon name={collapsed ? 'arrow-right-s' : 'arrow-down-s'} className="h-3.5 w-3.5 text-muted-foreground/70" />
+        ) : null}
       </span>
-      {/* The size of project headers: zones and projects are sections of equal weight. */}
-      <span className="typography-ui-header font-semibold text-foreground">
+      {/* font-medium (500): Chinese at 600 reads far heavier than Latin. */}
+      <span className="typography-ui-header font-medium text-foreground">
         {t(ACTIVITY_TITLE_KEY[activityKey])}
       </span>
     </button>

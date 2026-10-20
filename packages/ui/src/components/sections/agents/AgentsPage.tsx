@@ -545,6 +545,7 @@ export const AgentsPage: React.FC = () => {
             labels={{
               empty: t('settings.agents.page.field.colorAutomatic'),
               swatch: (swatch) => t('settings.agents.page.field.colorSwatchAria', { color: swatch }),
+              defaultGrey: t('settings.agents.page.field.colorDefaultGrey'),
               custom: t('settings.agents.page.field.colorCustomAria'),
               hex: t('settings.agents.page.field.colorHexAria'),
             }}

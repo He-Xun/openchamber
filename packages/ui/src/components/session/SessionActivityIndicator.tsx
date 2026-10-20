@@ -1,6 +1,6 @@
 import React from 'react';
-import { Icon } from '@/components/icon/Icon';
 import { Spinner } from '@/components/ui/spinner';
+import { Icon } from '@/components/icon/Icon';
 import type { IconName } from '@/components/icon/icons';
 import { useI18n } from '@/lib/i18n';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -18,15 +18,15 @@ const PRESENTATION = {
   running: { icon: 'circle', colorClass: 'text-status-info', labelKey: 'sessions.sidebar.session.status.active' },
   subagent: { icon: 'robot', colorClass: 'text-status-info', labelKey: 'sessions.sidebar.session.status.backgroundSubagent' },
   shell: { icon: 'terminal', colorClass: 'text-status-info', labelKey: 'sessions.sidebar.session.status.backgroundCommand' },
-  unread: { icon: 'checkbox-circle', colorClass: 'text-status-success', labelKey: 'sessions.sidebar.session.status.unread' },
+  // Codex-style unread: a small solid blue dot, not a status glyph.
+  unread: { icon: 'circle', colorClass: 'bg-primary', labelKey: 'sessions.sidebar.session.status.unread' },
 } as const satisfies Record<SessionActivityIndicatorState, { icon: IconName; colorClass: string; labelKey: string }>;
 
 /**
- * Live-activity marker for one session row or aggregate. Each state has its
- * own static icon, so a row says why it is busy without motion; motion lives
- * in the 1 Hz elapsed counter (see faa9c243). The opt-in
- * `animatedActivityIndicators` preference replaces every running kind with the
- * shared `Spinner` (four steps a second); the unread icon stays.
+ * Live-activity marker for one session row or aggregate. Running kinds draw
+ * the shared `Spinner` when the `animatedActivityIndicators` preference is on
+ * (default) and otherwise their own static icon, so a row says why it is busy.
+ * Unread is always a small solid blue dot.
  */
 export const SessionActivityIndicator: React.FC<{
   state: SessionActivityIndicatorState;
@@ -52,13 +52,15 @@ export const SessionActivityIndicator: React.FC<{
       title={tooltip ? undefined : label}
       data-session-activity-indicator={state}
     >
-      {running && animated ? (
-        <Spinner className="h-3 w-3 text-status-info" />
+      {running ? (
+        animated ? (
+          <Spinner className={cn('h-3 w-3 text-status-info', runningClassName)} />
+        ) : (
+          <Icon name={presentation.icon} className={cn('h-3 w-3', presentation.colorClass, runningClassName)} />
+        )
       ) : (
-        <Icon
-          name={presentation.icon}
-          className={cn('h-3 w-3', presentation.colorClass, running && runningClassName)}
-        />
+        // Small solid blue dot for finished-but-unseen turns.
+        <span className={cn('h-1.5 w-1.5 rounded-full', presentation.colorClass)} />
       )}
     </span>
   );

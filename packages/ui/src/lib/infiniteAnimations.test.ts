@@ -16,6 +16,9 @@ const ALLOWED = [
   { file: 'index.css', declaration: 'animation: webkit-spin 1s linear infinite !important;' },
   { file: 'index.css', declaration: 'animation: oc-trailing-expand-spin 0.8s linear infinite;' },
   { file: 'index.css', declaration: 'animation: marquee-scroll 5s linear infinite alternate;' },
+  // Hover-only: a truncated sidebar title scrolls while the row is hovered
+  // and stops (prefers-reduced-motion included) the moment it is not.
+  { file: 'index.css', declaration: 'animation: oc-sidebar-title-ltr var(--oc-title-duration, 2s) linear infinite alternate;' },
   { file: 'components/views/PierreDiffViewer.tsx', declaration: 'animation: oc-expand-spin 0.8s linear infinite;' },
 ];
 

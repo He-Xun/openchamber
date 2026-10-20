@@ -2225,11 +2225,50 @@ textarea[data-terminal-hidden-input="true"]::placeholder {
   animation: marquee-scroll 5s linear infinite alternate;
 }
 
+/*
+ * Sidebar session titles: the row clips, the text slides on hover so a
+ * truncated title becomes readable. The return leg moves left → right.
+ * `100cqw` is the clip window (the title's @container parent); `100%` is
+ * the text's own width, so `calc(-100% + 100cqw)` is 0 when the title fits.
+ */
+@keyframes oc-sidebar-title-ltr {
+  0%, 8% { transform: translateX(0); }
+  92%, 100% { transform: translateX(var(--oc-title-shift, min(0px, calc(100cqw - 100%)))); }
+}
+
+.oc-sidebar-title {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.group:hover .oc-sidebar-title {
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  /* Duration is set per row from the overflow distance so every title
+     glides at the same speed; the floor keeps barely-truncated titles
+     visibly moving instead of a one-frame nudge. */
+  animation: oc-sidebar-title-ltr var(--oc-title-duration, 2s) linear infinite alternate;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .open-file-name-marquee-track,
   .group:hover .marquee-text--active,
-  .marquee-text--active:hover {
+  .marquee-text--active:hover,
+  .group:hover .oc-sidebar-title {
     animation: none;
+  }
+
+  .group:hover .oc-sidebar-title {
+    width: auto;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .open-file-name-marquee-track {

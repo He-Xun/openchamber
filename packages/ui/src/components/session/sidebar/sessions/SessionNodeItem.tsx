@@ -49,7 +49,7 @@ import { buildActiveSessionTreeFromCache, collectSessionMoveDescendants } from '
 import type { SessionNode } from '../types';
 import { hasTreeSlotContext, isMultiLineTimelineContext, type SessionSidebarRenderContext } from '../sessionSidebarRowModel';
 import { SessionTimelineRowBody } from './SessionTimelineRowBody';
-import { sessionTreeRowPaddingLeft } from './sessionTreeGeometry';
+import { sessionTimelineRowPaddingLeft, sessionTreeRowPaddingLeft } from './sessionTreeGeometry';
 import { FileTreeChevron } from '@/components/views/files/FileTreeRowParts';
 import { formatProjectLabel, formatSessionCompactDateLabel, formatSessionDateLabel, normalizePath, renderHighlightedText } from '../utils';
 import { useProjectsStore } from '@/stores/useProjectsStore';
@@ -194,7 +194,8 @@ type SessionRefLine = SidebarRefLink & {
   /** The badge's short form: `#12` or the tracker identifier. */
   label: string;
 };
-const TIMELINE_ROW_LEFT_PX = 10;
+// Flat timeline rows share the project/zone header text inset: 26px from the
+// scroller content edge (headers reach it via -ms-2.5 + ps-4 + icon + gap).
 
 const cancelScrollAnchorByContainer = new WeakMap<HTMLElement, () => void>();
 
@@ -409,8 +410,9 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   );
   // Flat rows: no tree gutter, live state on the right. Chats and the Tree
   // view's Pinned and In work rows keep it on one line.
-  const isOneLineTimelineRow = renderContext === 'timeline-chat' || renderContext === 'tree-chat' || renderContext === 'mixed-compact';
-  const isTimelineRow = isMultiLineTimelineContext(renderContext) || isOneLineTimelineRow;
+  // Flat list/tree rows may still collapse to one line; whether they do is
+  // decided after the second line's content (project/branch/ref) is known.
+  const isMultiLineContext = isMultiLineTimelineContext(renderContext);
   // List sorted by time: no project headers, so the row names its project
   // on a line of its own.
   const hasProjectLine = renderContext === 'timeline-by-time';
@@ -429,8 +431,14 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   // record, and `find` keeps the reference stable between renders.
   const timelineProject = useProjectsStore(
     React.useCallback((state) => {
-      if ((renderContext !== 'timeline-mixed' && renderContext !== 'timeline-by-time') || !projectId) return null;
-      return state.projects.find((entry) => entry.id === projectId) ?? null;
+      if (!projectId) return null;
+      // Mixed zones (Pinned/In work) and the list by time name the project on
+      // the second line; rows already sitting under that project's header do
+      // not repeat it.
+      if (renderContext === 'timeline-mixed' || renderContext === 'timeline-by-time' || renderContext === 'mixed-compact') {
+        return state.projects.find((entry) => entry.id === projectId) ?? null;
+      }
+      return null;
     }, [renderContext, projectId]),
   );
   const tooltipProjectLabel = secondaryMeta?.projectLabel
@@ -682,6 +690,19 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
       </span>
     </RowMarkTooltip>
   ) : null;
+  // Codex-style, every section (Chats/Pinned/Projects/In work): a row keeps
+  // one line when its second line would be empty or only a glyph (the project
+  // icon's label is a tooltip, not visible text). It grows to two lines only
+  // for real visible text — a branch or a tracker ref.
+  const hasSecondLineContent = Boolean(
+    tooltipBranchLabel?.trim()
+    || (primaryRef && primaryRef.label?.trim()),
+  );
+  const isOneLineTimelineRow = !isMultiLineContext && !hasSecondLineContent;
+  // Project-tree rows without a second line keep the gutter layout (state and
+  // directory live in the tree slot). Once they grow a second line they join
+  // the timeline layout like every other two-line row.
+  const isTimelineRow = isMultiLineContext || hasSecondLineContent || renderContext !== 'project';
   const sessionTitle = resolvedSession.title || t('sessions.sidebar.session.untitled');
   // Rows with the tree slot open to their subsessions, the Tree view's
   // Chats, Pinned and In work rows included. List is a flat list: a node that
@@ -958,9 +979,9 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
       return (
         <div
           key={session.id}
-          style={{ paddingInlineStart: TIMELINE_ROW_LEFT_PX }}
+          style={{ paddingInlineStart: sessionTimelineRowPaddingLeft(depth) }}
           className={cn(
-            'oc-ref-tint-scope group relative my-0.5 flex items-center rounded-md pe-2.5',
+            'oc-ref-tint-scope group relative my-1 flex items-center rounded-md pe-2.5',
             isOneLineTimelineRow ? 'py-1' : 'py-1.5',
             isActive && 'bg-interactive-selection/70 text-interactive-selection-foreground',
           )}
@@ -983,7 +1004,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
                 className={cn('inline-flex flex-shrink-0 items-center gap-1 typography-micro', primaryRef.color ? 'oc-ref-tint' : 'text-muted-foreground')}
                 style={primaryRef.color ? refTintStyle(primaryRef.color) : undefined}
               >
-                <Icon name={primaryRef.icon} className="h-3 w-3" />
+                {/* No per-type glyph — the tinted number is enough (and matches GPT's quieter rows). */}
                 {isOneLineTimelineRow ? null : <>
                   <span className="leading-none tabular-nums">{primaryRef.label}</span>
                   {moreRefCount > 0 ? <span className="leading-none tabular-nums text-muted-foreground">+{moreRefCount}</span> : null}
@@ -1002,9 +1023,9 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
       <div
         key={session.id}
         style={{ paddingInlineStart: sessionTreeRowPaddingLeft(depth) }}
-        // my-0.5 matches the normal row box so entering rename mode does not
+        // my-1 matches the normal row box so entering rename mode does not
         // shift the row vertically; the empty slot keeps the title in place.
-        className={cn('group relative my-0.5 flex items-center gap-1.5 rounded-md pe-2.5', isTimelineRow ? 'py-1' : 'py-[3px]')}
+        className={cn('group relative my-1 flex items-center gap-1.5 rounded-md pe-2.5', isTimelineRow ? 'py-1' : 'py-1')}
       >
         <span aria-hidden className="h-3.5 w-3.5 flex-shrink-0" />
         <div className="flex min-w-0 flex-1 flex-col gap-0">
@@ -1064,7 +1085,9 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   // while the row is hovered or focused. Touch layouts have no hover, so there
   // a parent keeps its chevron and its state stays on the right, where List
   // rows, flat by design, always show it.
-  const stateInSlot = hasTreeSlot && liveStateMark !== null && !(hasChildren && alwaysShowActions);
+  // Codex-style: the live state rides on the row's right edge (statusDot),
+  // not in the left tree slot, so it reads at a glance next to the time.
+  const stateInSlot = false;
   const treeChevron = hasChildren ? (
     <span
       role="button"
@@ -1708,7 +1731,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   // one-line form, with the session's live state and time on the right.
   const rowBody = (
     <SessionTimelineRowBody
-      compact={!isMultiLineTimelineContext(renderContext)}
+      compact={isOneLineTimelineRow}
       project={timelineProject}
       projectLabel={tooltipProjectLabel}
       projectLine={hasProjectLine}
@@ -1719,8 +1742,8 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
       titleClassName={isActive || isRowSelected
         ? 'text-interactive-selection-foreground'
         : showUnreadStatus || hasPendingPermission || hasPendingForm
-          ? 'font-semibold text-foreground'
-          : isStreaming ? 'text-foreground' : 'text-muted-foreground'}
+          ? 'font-medium text-foreground'
+          : isStreaming ? 'text-foreground' : 'text-foreground/90'}
       branchLabel={tooltipBranchLabel}
       spaceMark={branchInSpace ? t('sessions.sidebar.group.space') : null}
       statusDot={stateInSlot ? null : liveStateMark}
@@ -1830,15 +1853,17 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
                 data-session-archived={archivedBucket ? '1' : '0'}
                 aria-current={isActive ? 'page' : undefined}
                 onClick={handleRowBackgroundClick}
-                // List rows have no gutter: their content sits 10px in.
-                // Rows with the tree slot use the file tree geometry: 12px per
-                // level from an 8px edge, then the slot and a 6px gap.
-                style={{ paddingInlineStart: hasTreeSlot ? sessionTreeRowPaddingLeft(depth) : TIMELINE_ROW_LEFT_PX }}
+                // List rows have no gutter: their content sits 26px in, then
+                // one indent per depth. Rows with the tree slot use the file
+                // tree geometry: 12px per level from a 6px edge, then the
+                // slot and a 6px gap.
+                style={{ paddingInlineStart: hasTreeSlot ? sessionTreeRowPaddingLeft(depth) : sessionTimelineRowPaddingLeft(depth) }}
                 className={cn(
-                  'oc-ref-tint-scope group relative my-0.5 flex cursor-pointer items-center rounded-md pe-2.5',
+                  'oc-ref-tint-scope group relative my-1 flex cursor-pointer items-center rounded-md pe-2.5',
                   hasTreeSlot && 'gap-1.5',
-                  // Tree rows sit a little tighter than the timeline's.
-                  isTimelineRow ? (isOneLineTimelineRow ? 'py-1' : 'py-1.5') : 'py-[3px]',
+                  // One consistent vertical rhythm: 4px for one-line rows,
+                  // 6px for two-line timeline rows.
+                  isTimelineRow ? (isOneLineTimelineRow ? 'py-1' : 'py-1.5') : 'py-1',
                   !(isActive || isRowSelected) && 'hover:bg-interactive-hover/60',
                   (isActive || isRowSelected) && 'bg-interactive-selection/70 text-interactive-selection-foreground',
                   isRowSelected && 'ring-1 ring-inset ring-border',

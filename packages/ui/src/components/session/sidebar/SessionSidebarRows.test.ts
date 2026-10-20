@@ -71,7 +71,7 @@ describe('SessionSidebarRows section spacing', () => {
 
   test('a row that ends a section is estimated as its siblings plus its gap', () => {
     const rows = buildSessionSidebarRowModel(input(true)).rows;
-    const lastBeforeProjects = rows.findIndex((row) => row.kind === 'project-header') - 1;
+    const lastBeforeProjects = rows.findIndex((row) => row.kind === 'activity-header' && row.activityKey === 'projects') - 1;
     const last = rows[lastBeforeProjects];
     expect(last.kind).toBe('session');
     expect(estimateSessionSidebarRowSize(last, rows[lastBeforeProjects + 1])).toBe(last.estimateSize + 8);
@@ -81,16 +81,18 @@ describe('SessionSidebarRows section spacing', () => {
   });
 
   test('a header gaining its gap as it closes is a new virtual item, so its old height is not reused', () => {
-    const workHeader = (collapsedActivities: Set<string>) => {
-      const rows = buildSessionSidebarRowModel({ ...input(true), collapsedActivities }).rows;
-      const index = rows.findIndex((row) => row.kind === 'activity-header' && row.activityKey === 'work');
+    const projectHeader = (collapsedProjects: Set<string>) => {
+      const rows = buildSessionSidebarRowModel({ ...input(true), collapsedProjects }).rows;
+      const index = rows.findIndex((row) => row.kind === 'project-header');
       return { key: rows[index].key, virtualKey: sessionSidebarRowVirtualKey(rows[index], rows[index + 1]) };
     };
-    const open = workHeader(new Set());
-    // Closed, the zone is followed by the next section and takes its gap.
-    const closed = workHeader(new Set(['work']));
+    const open = projectHeader(new Set());
+    // Closed, the project is followed by the next section and takes its gap.
+    const closed = projectHeader(new Set(['project-a']));
 
     expect(closed.key).toBe(open.key);
     expect(closed.virtualKey).not.toBe(open.virtualKey);
+    expect(open.virtualKey.endsWith('pb-1.5')).toBe(true);
+    expect(closed.virtualKey.endsWith('pb-2')).toBe(true);
   });
 });

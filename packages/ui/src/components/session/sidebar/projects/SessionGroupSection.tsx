@@ -8,6 +8,7 @@ import type { Session } from '@/lib/opencode/model';
 // Archived buckets routinely grow into the hundreds/thousands; virtualize
 // when we cross this row count so the DOM stays bounded.
 const EMPTY_FOLDERS: readonly never[] = [];
+const EMPTY_PINNED_SESSION_IDS: Set<string> = new Set();
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getPrStatusLabel } from '../prStatusLabel';
 import { Button } from '@/components/ui/button';
@@ -386,8 +387,10 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
       if (bIndex === undefined) return -1;
       if (aIndex !== bIndex) return aIndex - bIndex;
     }
-    return compareSessionsByLifecycleOrder(a.session, b.session, pinnedSessionIds, EMPTY_SESSION_ORDER_RANKS);
-  }, [pinnedSessionIds, sessionOrderIndex]);
+    // Pinned sessions live in the root Pinned zone; project trees keep
+    // ordinary recency order so a pin never reshuffles the folder.
+    return compareSessionsByLifecycleOrder(a.session, b.session, EMPTY_PINNED_SESSION_IDS, EMPTY_SESSION_ORDER_RANKS);
+  }, [sessionOrderIndex]);
 
   const searchData = hasSessionSearchQuery ? groupSearchDataByGroup.get(group) : null;
   const isCollapsed = hasSessionSearchQuery ? false : collapsedGroups.has(groupKey);
@@ -1185,12 +1188,15 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
                     <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center text-muted-foreground" title={t('sessions.sidebar.group.worktreeRemoving')} role="status" aria-label={t('sessions.sidebar.group.worktreeRemoving')}>
                       <Spinner className="h-3.5 w-3.5" />
                     </span>
-                  ) : (
-                    <Icon name={group.space ? 'box-3' : 'git-branch'}
-                      className={cn('h-3 w-3 shrink-0', groupPrColor ? 'oc-ref-tint' : 'text-muted-foreground')}
-                      style={groupPrColor ? refTintStyle(groupPrColor) : undefined}
-                      aria-label={group.space ? t('sessions.sidebar.group.space') : undefined}
+                  ) : group.space ? (
+                    <Icon name="box-3"
+                      className="h-3 w-3 shrink-0 text-muted-foreground"
+                      aria-label={t('sessions.sidebar.group.space')}
                     />
+                  ) : (
+                    /* No git-branch glyph on every worktree header — the label
+                       and the PR tint already say what it is. */
+                    <span aria-hidden className="h-3.5 w-3.5 shrink-0" />
                   ))}
                   {/* Medium weight a step down from full strength: above the
                       muted session titles at rest, below the project header. */}
@@ -1258,9 +1264,9 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
                 {group.isArchivedBucket ? (
                   <Icon name="archive" className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
                 ) : (
-                  <Icon name="git-branch" className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                  <span aria-hidden className="h-3.5 w-3.5 flex-shrink-0" />
                 )}
-                <span className="min-w-0 truncate text-[11px] font-medium text-muted-foreground/80">
+                <span className="min-w-0 truncate text-[11px] text-muted-foreground/80">
                   {statusLine.label}
                 </span>
               </span>

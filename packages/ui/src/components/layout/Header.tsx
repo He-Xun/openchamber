@@ -1279,7 +1279,7 @@ export const Header: React.FC = () => {
                   </button>
                 </form>
               ) : (
-                <span dir="auto" className="block overflow-hidden whitespace-nowrap oc-ui-start-align text-[13px] font-medium leading-4 text-foreground max-w-full">
+                <span dir="auto" className="block overflow-hidden whitespace-nowrap oc-ui-start-align text-[13px] font-semibold leading-4 text-foreground max-w-full">
                   {isNewSessionDraftOpen ? t('sessions.switcher.draftTitle') : currentSessionTitle}
                 </span>
               )}

@@ -144,34 +144,23 @@ export const TitlebarLeftControls: React.FC = () => {
           </TooltipContent>
         </Tooltip>
 
-        {/* Labelled while the sidebar is open; collapses to an icon with a
-            tooltip so the cluster stays compact over the header otherwise. */}
-        {isSidebarOpen ? (
-          <button
-            type="button"
-            onClick={handleNewSession}
-            className={cn(ICON_BUTTON_CLASS, '-ms-1 w-auto min-w-0 px-1.5 font-normal')}
-          >
-            <Icon name="chat-new" className="h-4 w-4 shrink-0" />
-            <span className="truncate">{t('sessions.sidebar.header.actions.newSession')}</span>
-          </button>
-        ) : (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={handleNewSession}
-                aria-label={t('sessions.sidebar.header.actions.newSession')}
-                className={cn(ICON_BUTTON_CLASS, '-ms-1 shrink-0')}
-              >
-                <Icon name="chat-new" className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{t('sessions.sidebar.header.actions.newSession')}</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
+        {/* Icon only: the sidebar already carries the full "New session" entry,
+            and the labelled pill fought the header's compact cluster. */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={handleNewSession}
+              aria-label={t('sessions.sidebar.header.actions.newSession')}
+              className={cn(ICON_BUTTON_CLASS, '-ms-1 shrink-0')}
+            >
+              <Icon name="chat-new" className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{t('sessions.sidebar.header.actions.newSession')}</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
     </div>
   );

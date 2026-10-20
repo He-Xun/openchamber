@@ -1,10 +1,21 @@
-import { fileTreeRowPaddingLeft } from '@/components/views/files/fileTreeRow';
+import { FILE_TREE_INDENT_PX, fileTreeRowPaddingLeft } from '@/components/views/files/fileTreeRow';
 
-// The session tree uses the file tree geometry with a 6px base instead of 8px:
-// root session titles then start where the project header's label starts.
+// Project/zone headers pull out of the scroller's 10px start padding with
+// -ms-2.5, then pad 16px + a 14px icon + a 6px gap: their labels sit 26px
+// from the scroller content edge. The tree row pads `base` then a 14px slot
+// and a 6px gap, so base = 6px puts root session titles on that same line.
 export const SESSION_TREE_BASE_PADDING_PX = 6;
 
 export const sessionTreeRowPaddingLeft = (depth: number): string => fileTreeRowPaddingLeft(depth, SESSION_TREE_BASE_PADDING_PX);
+
+// Flat list rows have no chevron slot: their content starts where tree-row
+// titles do at depth 0 (26px), then steps one indent per level so sessions
+// under a project read as children of its header. `sessionTimelineTextInset`
+// is that same title start, for rows that pad by text inset rather than box.
+export const SESSION_TIMELINE_ROW_LEFT_PX = 26;
+
+export const sessionTimelineRowPaddingLeft = (depth: number): string =>
+  `${SESSION_TIMELINE_ROW_LEFT_PX + depth * FILE_TREE_INDENT_PX}px`;
 
 /** Where the text of a tree row starts: past the level's chevron slot (14px) and gap (6px). */
 export const sessionTreeTextInset = (depth: number): string => `calc(${sessionTreeRowPaddingLeft(depth)} + 20px)`;

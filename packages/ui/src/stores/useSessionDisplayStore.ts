@@ -93,13 +93,19 @@ export const migrateSessionDisplayState = (
     // timeline view answers "what was I doing" across projects.
     delete state.showRecentSection;
   }
+  if (version < 11) {
+    // v11 turns the Pinned band on: pinning a session then moves it into a
+    // section the user can see (ChatGPT/Codex-style 置顶 at the top).
+    state.showPinnedSection = true;
+  }
   return state;
 };
 
 export const useSessionDisplayStore = create<SessionDisplayStore>()(
   persist(
     (set) => ({
-      animatedActivityIndicators: false,
+      // Default on: the sidebar's running mark is a spinner (Codex-style).
+      animatedActivityIndicators: true,
       setAnimatedActivityIndicators: (enabled) => set({ animatedActivityIndicators: enabled }),
       projectDisplayMode: 'all',
       singleProjectId: null,
@@ -113,7 +119,9 @@ export const useSessionDisplayStore = create<SessionDisplayStore>()(
       setListSessionGrouping: (grouping) => set({ listSessionGrouping: grouping }),
       showChatsSection: true,
       showWorkSection: true,
-      showPinnedSection: false,
+      // Pinned band is on by default (ChatGPT/Codex-style 置顶 at the top);
+      // pinning a session then moves it into a section the user can see.
+      showPinnedSection: true,
       detailedZoneRows: false,
       // Default to HIDDEN so the pre-hydration state matches the quiet/safe
       // option: archived sessions must never flash visible on startup and then
@@ -132,7 +140,7 @@ export const useSessionDisplayStore = create<SessionDisplayStore>()(
     }),
     {
       name: 'session-display-mode',
-      version: 10,
+      version: 11,
       // v1→v2 adds projectSortOrder using the canonical manual ordering.
       // v2→v3 replaces the previously shipped recent default with manual.
       // v3→v4 removes displayMode (single sidebar row layout).
@@ -142,6 +150,7 @@ export const useSessionDisplayStore = create<SessionDisplayStore>()(
       // v7→v8 turned Recent off by default.
       // v8→v9 adds worktreeSortOrder (manual by default).
       // v9→v10 drops showRecentSection (Recent is gone).
+      // v10→v11 turns the Pinned band on by default.
       migrate: migrateSessionDisplayState,
     },
   ),

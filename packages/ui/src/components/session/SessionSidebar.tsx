@@ -653,6 +653,22 @@ const SessionSidebarComponent: React.FC<SessionSidebarProps> = ({
         expandAll={projectView.actions.expandAll}
       />
 
+      {/* GPT-style new-chat entry at the top of the list. */}
+      {!hasSessionSearchQuery ? (
+        <div className="flex-shrink-0 px-1.5 pb-1">
+          <button
+            type="button"
+            onClick={() => openNewSessionDraftFromTree()}
+            className="group flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-start typography-ui-label text-muted-foreground hover:bg-interactive-hover/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          >
+            <svg viewBox="0 0 16 16" className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+              <path d="M11.5 2.5l2 2L5 13H3v-2L11.5 2.5z" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span className="truncate">{t('sessions.sidebar.header.actions.newSession')}</span>
+          </button>
+        </div>
+      ) : null}
+
       <SessionProjectCollection
         topology={{
           projects: sortedProjects,

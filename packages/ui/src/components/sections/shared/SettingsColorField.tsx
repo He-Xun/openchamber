@@ -1,7 +1,7 @@
 import React from 'react';
 import { Icon } from '@/components/icon/Icon';
 import { Input } from '@/components/ui/input';
-import { COLOR_PRESETS, isHexColor } from '@/lib/colorPresets';
+import { COLOR_PRESETS, DEFAULT_GREY_COLOR, isHexColor } from '@/lib/colorPresets';
 import { cn } from '@/lib/utils';
 
 const SWATCH_CLASS = 'flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
@@ -11,6 +11,8 @@ type SettingsColorFieldLabels = {
   /** What an empty value means for this setting ("Automatic", "No color"). */
   empty: string;
   swatch: (color: string) => string;
+  /** Label for the neutral default-grey preset. */
+  defaultGrey: string;
   custom: string;
   hex: string;
 };
@@ -65,8 +67,8 @@ export const SettingsColorField: React.FC<{
           aria-pressed={selected === color}
           className={cn(SWATCH_CLASS, selected === color && SELECTED_CLASS)}
           style={{ backgroundColor: color }}
-          title={color}
-          aria-label={labels.swatch(color)}
+          title={color === DEFAULT_GREY_COLOR ? labels.defaultGrey : color}
+          aria-label={color === DEFAULT_GREY_COLOR ? labels.defaultGrey : labels.swatch(color)}
         />
       ))}
       <button

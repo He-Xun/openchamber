@@ -52,7 +52,7 @@ import { Icon } from "@/components/icon/Icon";
 import { McpIcon } from '@/components/icons/McpIcon';
 import { ArrowsMerge } from '@/components/icons/ArrowsMerge';
 import { scoreByFuzzyQuery } from '@/lib/search/fuzzySearch';
-import { useI18n } from '@/lib/i18n';
+import { useI18n, type I18nKey } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { sessionEvents } from '@/lib/sessionEvents';
 import { copyTextToClipboard } from '@/lib/clipboard';
@@ -546,26 +546,52 @@ export const CommandPalette: React.FC = () => {
   }, [isMobile, routingAvailable, enterpriseMode, jevBlockedByEnterprise]);
 
   const settingsEntries = React.useMemo<CommandEntry[]>(() => {
+    // Localized titles — the metadata's English `title` is only a fallback.
+    const titleKeyBySlug: Record<string, I18nKey> = {
+      general: 'settings.page.general.title',
+      projects: 'settings.page.projects.title',
+      'remote-instances': 'settings.page.remoteInstances.title',
+      providers: 'settings.page.providers.title',
+      'web-search': 'settings.page.webSearch.title',
+      usage: 'settings.page.usage.title',
+      agents: 'settings.page.agents.title',
+      behavior: 'settings.page.behavior.title',
+      commands: 'settings.page.commands.title',
+      mcp: 'settings.page.mcp.title',
+      plugins: 'settings.page.plugins.title',
+      'skills.installed': 'settings.page.skills.title',
+      'skills.catalog': 'settings.page.skillsCatalog.title',
+      git: 'settings.page.git.title',
+      integrations: 'settings.page.integrations.title',
+      extensions: 'settings.page.extensions.title',
+      appearance: 'settings.page.appearance.title',
+      chat: 'settings.page.chat.title',
+      shortcuts: 'settings.page.shortcuts.title',
+      sessions: 'settings.page.sessions.title',
+      routing: 'settings.page.routing.title',
+      'magic-prompts': 'settings.page.magicPrompts.title',
+    };
     return SETTINGS_PAGE_METADATA
       .filter((p) => p.slug !== 'home')
       .filter((p) => (p.isAvailable ? p.isAvailable(settingsRuntimeCtx) : true))
       .map((page) => {
         const iconName = getSettingsNavIcon(page.slug) ?? 'settings-3';
         const keywords = (page.keywords ?? []).join(' ');
+        const localizedTitle = titleKeyBySlug[page.slug] ? t(titleKeyBySlug[page.slug]) : page.title;
         return {
           id: `settings:${page.slug}`,
-          title: page.title,
+          title: localizedTitle,
           icon: page.slug === 'mcp'
             ? <McpIcon className="me-2 h-4 w-4" />
             : <Icon name={iconName} className="me-2 h-4 w-4" />,
-          searchText: `${page.title} ${page.group} ${keywords}`,
+          searchText: `${localizedTitle} ${page.group} ${keywords}`,
           onSelect: run(() => {
             setSettingsPage(page.slug);
             setSettingsDialogOpen(true);
           }),
         } satisfies CommandEntry;
       });
-  }, [settingsRuntimeCtx, run, setSettingsPage, setSettingsDialogOpen]);
+  }, [settingsRuntimeCtx, run, setSettingsPage, setSettingsDialogOpen, t]);
 
   // ---------------------------------------------------------------------------
   // Sessions

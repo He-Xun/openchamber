@@ -100,7 +100,7 @@ describe('useSessionDisplayStore view mode', () => {
 
 
 describe('useSessionDisplayStore animated activity', () => {
-  test('hydrates existing v8 data with motion off and retains saved choices', async () => {
+  test('hydrates existing v8 data with motion on and retains saved choices', async () => {
     const initialState = useSessionDisplayStore.getState();
     const originalStorage = useSessionDisplayStore.persist.getOptions().storage;
     let stored = JSON.stringify({ version: 8, state: { sidebarViewMode: 'timeline', showRecentSection: false } });
@@ -112,9 +112,9 @@ describe('useSessionDisplayStore animated activity', () => {
     useSessionDisplayStore.persist.setOptions({ storage });
     try {
       await useSessionDisplayStore.persist.rehydrate();
-      expect(useSessionDisplayStore.getState().animatedActivityIndicators).toBe(false);
+      expect(useSessionDisplayStore.getState().animatedActivityIndicators).toBe(true);
       expect(useSessionDisplayStore.getState().sidebarViewMode).toBe('timeline');
-      expect(useSessionDisplayStore.persist.getOptions().version).toBe(10);
+      expect(useSessionDisplayStore.persist.getOptions().version).toBe(11);
       useSessionDisplayStore.getState().setAnimatedActivityIndicators(true);
       const enabledSnapshot = stored;
       useSessionDisplayStore.setState({ animatedActivityIndicators: false });

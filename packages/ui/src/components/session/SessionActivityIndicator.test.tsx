@@ -56,7 +56,7 @@ describe('SessionActivityIndicator', () => {
     .querySelector(`[data-session-activity-indicator="${state}"] use`)
     ?.getAttribute('href');
 
-  test('gives each state its own static icon when animated indicators are off', async () => {
+  test('gives each running state its own static icon when animated indicators are off; unread is a dot', async () => {
     useSessionDisplayStore.setState({ animatedActivityIndicators: false });
 
     await renderIndicator({ state: 'running' });
@@ -66,7 +66,8 @@ describe('SessionActivityIndicator', () => {
     await renderIndicator({ state: 'shell' });
     expect(iconHref('shell')).toBe('#oc-terminal');
     await renderIndicator({ state: 'unread' });
-    expect(iconHref('unread')).toBe('#oc-checkbox-circle');
+    expect(iconHref('unread')).toBeUndefined();
+    expect(host.querySelector('[data-session-activity-indicator="unread"] .rounded-full.bg-primary')).not.toBeNull();
     expect(host.querySelector('[data-session-activity-indicator]')?.classList).toContain('shrink-0');
     expect(host.querySelector('[data-spinner]')).toBeNull();
   });
@@ -84,10 +85,11 @@ describe('SessionActivityIndicator', () => {
     await renderIndicator({ state: 'subagent', runningClassName: 'pulse' });
     expect(host.querySelector('svg')?.classList).toContain('pulse');
     await renderIndicator({ state: 'unread', runningClassName: 'pulse' });
-    expect(host.querySelector('svg')?.classList).not.toContain('pulse');
+    expect(host.querySelector('svg')).toBeNull();
+    expect(host.querySelector('.pulse')).toBeNull();
   });
 
-  test('the spinner preference replaces every running kind and keeps the unread icon', async () => {
+  test('the spinner preference replaces every running kind and keeps the unread dot', async () => {
     useSessionDisplayStore.setState({ animatedActivityIndicators: true });
 
     for (const state of ['running', 'subagent', 'shell'] as const) {
@@ -95,7 +97,8 @@ describe('SessionActivityIndicator', () => {
       expect(host.querySelector(`[data-session-activity-indicator="${state}"] [data-spinner]`)).not.toBeNull();
     }
     await renderIndicator({ state: 'unread' });
-    expect(iconHref('unread')).toBe('#oc-checkbox-circle');
+    expect(iconHref('unread')).toBeUndefined();
+    expect(host.querySelector('[data-session-activity-indicator="unread"] .rounded-full.bg-primary')).not.toBeNull();
     expect(host.querySelector('[data-spinner]')).toBeNull();
   });
 

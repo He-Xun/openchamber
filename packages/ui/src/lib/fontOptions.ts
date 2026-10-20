@@ -1,6 +1,6 @@
-export type UiFontOption = 'inter' | 'fixel' | 'geist-sans' | 'atkinson-hyperlegible' | 'source-sans-3' | 'roboto' | 'noto-sans' | 'dm-sans' | 'manrope' | 'system' | 'custom';
+export type UiFontOption = 'inter' | 'fixel' | 'geist-sans' | 'atkinson-hyperlegible' | 'source-sans-3' | 'roboto' | 'noto-sans' | 'dm-sans' | 'manrope' | 'misans' | 'microsoft-yahei' | 'pingfang-sc' | 'source-han-sans' | 'system' | 'custom';
 
-export type MonoFontOption = 'jetbrains-mono' | 'fira-code' | 'geist-mono' | 'commit-mono' | 'source-code-pro' | 'cascadia-code' | 'roboto-mono' | 'iosevka' | 'system-mono' | 'custom';
+export type MonoFontOption = 'jetbrains-mono' | 'fira-code' | 'geist-mono' | 'commit-mono' | 'source-code-pro' | 'cascadia-code' | 'roboto-mono' | 'iosevka' | 'sarasa-mono-sc' | 'noto-sans-mono-cjk' | 'system-mono' | 'custom';
 
 interface FontFaceSourceBase {
     family: string;
@@ -16,7 +16,16 @@ interface DirectFontFaceSource extends FontFaceSourceBase {
     urls: Record<number, string>;
 }
 
-export type FontFaceSource = FontsourceFaceSource | DirectFontFaceSource;
+/**
+ * A stylesheet that ships its own @font-face rules (with unicode-range subsets,
+ * the way CJK webfonts are published). Loaded on demand from the network —
+ * never bundled into the installer.
+ */
+interface CssFontFaceSource extends FontFaceSourceBase {
+    cssUrl: string;
+}
+
+export type FontFaceSource = FontsourceFaceSource | DirectFontFaceSource | CssFontFaceSource;
 
 interface FontOptionDefinition<T extends string> {
     id: T;
@@ -100,10 +109,39 @@ export const UI_FONT_OPTIONS: FontOptionDefinition<UiFontOption>[] = [
         source: { family: 'Manrope', packageName: '@fontsource/manrope', filePrefix: 'manrope', weights: [400, 500, 600] }
     },
     {
+        id: 'misans',
+        label: 'MiSans',
+        description: '小米中文字体，界面中英混排均匀、现代。未安装时回退到雅黑/苹方。',
+        stack: '"MiSans", "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif'
+    },
+    {
+        id: 'microsoft-yahei',
+        label: '微软雅黑',
+        description: 'Windows 默认中文字体，屏幕阅读清晰，覆盖面广。',
+        stack: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Segoe UI", sans-serif'
+    },
+    {
+        id: 'pingfang-sc',
+        label: '苹方',
+        description: 'macOS 系统中文字体，字重完整，排版干净。',
+        stack: '"PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Hiragino Sans GB", sans-serif'
+    },
+    {
+        id: 'source-han-sans',
+        label: '思源黑体',
+        description: '开源中日韩黑体（Noto Sans SC），字形中性；按需从网络加载，未装也能显示。',
+        stack: '"Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif',
+        source: {
+            family: 'Noto Sans SC',
+            weights: [400, 500, 600],
+            cssUrl: 'https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@5.3.1/index.css'
+        }
+    },
+    {
         id: 'system',
         label: 'System',
         description: 'Native operating system interface font.',
-        stack: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
+        stack: '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif'
     }
 ];
 
@@ -165,10 +203,32 @@ export const CODE_FONT_OPTIONS: FontOptionDefinition<MonoFontOption>[] = [
         source: { family: 'Iosevka', packageName: '@fontsource/iosevka', filePrefix: 'iosevka', weights: [400, 500, 600] }
     },
     {
+        id: 'sarasa-mono-sc',
+        label: '更纱黑体 Mono SC',
+        description: '等宽中文字体，中英等宽对齐；优先使用本机安装的 Sarasa，中文回退到网络加载的 Noto Sans SC。',
+        stack: '"Sarasa Mono SC", "Noto Sans Mono CJK SC", "Sarasa Mono", "Noto Sans SC", "Microsoft YaHei Mono", "Cascadia Mono", monospace',
+        source: {
+            family: 'Noto Sans SC',
+            weights: [400, 500],
+            cssUrl: 'https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@5.3.1/index.css'
+        }
+    },
+    {
+        id: 'noto-sans-mono-cjk',
+        label: 'Noto Sans Mono CJK',
+        description: '开源 CJK 等宽风格（网络加载 Noto Sans SC 作中文回退），中英文宽度稳定。',
+        stack: '"Noto Sans Mono CJK SC", "Noto Sans Mono CJK", "Sarasa Mono SC", "Noto Sans SC", "Microsoft YaHei", "Cascadia Mono", monospace',
+        source: {
+            family: 'Noto Sans SC',
+            weights: [400, 500],
+            cssUrl: 'https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@5.3.1/index.css'
+        }
+    },
+    {
         id: 'system-mono',
         label: 'System Mono',
         description: 'Native operating system monospace font.',
-        stack: 'ui-monospace, "SFMono-Regular", "Menlo", "Cascadia Mono", "Segoe UI Mono", monospace'
+        stack: 'ui-monospace, "SFMono-Regular", "Menlo", "Cascadia Mono", "Segoe UI Mono", "Sarasa Mono SC", "Microsoft YaHei", monospace'
     }
 ];
 

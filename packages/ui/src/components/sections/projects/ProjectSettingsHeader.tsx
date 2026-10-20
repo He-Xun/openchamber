@@ -106,6 +106,7 @@ const ProjectAppearancePicker: React.FC<{
           labels={{
             empty: t('settings.projects.appearance.colorNone'),
             swatch: (color) => t('settings.projects.appearance.colorSwatchAria', { color }),
+            defaultGrey: t('settings.projects.appearance.colorDefaultGrey'),
             custom: t('settings.projects.appearance.colorCustomAria'),
             hex: t('settings.projects.appearance.colorHexAria'),
           }}

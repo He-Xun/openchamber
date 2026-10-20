@@ -1,10 +1,37 @@
 import React from 'react';
 import { RowMarkTooltip } from './RowMarkTooltip';
 import { Icon } from '@/components/icon/Icon';
-import { ProviderLogo } from '@/components/ui/ProviderLogo';
 import { cn } from '@/lib/utils';
 import { PROJECT_ICON_MAP, resolveProjectColor, ProjectIconImage } from '@/lib/projectMeta';
 import { useThemeSystem } from '@/contexts/useThemeSystem';
+
+/**
+ * A truncated sidebar title that glides on hover. The marquee travels at a
+ * constant pixel speed: the element measures its overflow against the clip
+ * box and writes the duration (and the shift distance) as custom properties
+ * the keyframes read. A barely-truncated title still gets a short glide
+ * instead of a one-frame nudge.
+ */
+const SidebarTitle: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => {
+    const titleRef = React.useRef<HTMLDivElement | null>(null);
+    React.useLayoutEffect(() => {
+        const el = titleRef.current;
+        const clip = el?.parentElement;
+        if (!el || !clip) return;
+        const overflow = el.scrollWidth - clip.clientWidth;
+        const shift = -Math.max(overflow, 1);
+        // ~48px/s feels even across short and long titles; 1.25s floor keeps
+        // a title that only just ellipsizes visibly moving.
+        const durationSec = Math.max(Math.abs(shift) / 48, 1.25);
+        el.style.setProperty('--oc-title-shift', `${shift}px`);
+        el.style.setProperty('--oc-title-duration', `${durationSec}s`);
+    }, [children]);
+    return (
+        <div dir="auto" ref={titleRef} className={cn('oc-sidebar-title text-[0.9375rem] font-normal', className)}>
+            {children}
+        </div>
+    );
+};
 
 type TimelineRowProject = {
   id: string;
@@ -79,9 +106,10 @@ const ProjectImageIcon: React.FC<{ project: TimelineRowProject; fallback: React.
 // is the only word for the project; a row that prints the name passes null.
 const TimelineProjectIcon: React.FC<{ project: TimelineRowProject; label: string | null }> = ({ project, label }) => {
   const iconName = project.icon ? PROJECT_ICON_MAP[project.icon] : null;
+  // Custom colour only when the user set one; otherwise a quiet neutral glyph.
   const iconColor = resolveProjectColor(project.color);
   const glyph = iconName
-    ? <Icon name={iconName} className={cn('h-3 w-3', !iconColor && 'text-muted-foreground/75')} style={iconColor ? { color: iconColor } : undefined} />
+    ? <Icon name={iconName} className="h-3 w-3" style={iconColor ? { color: iconColor } : undefined} />
     : <Icon name="folder" className="h-3 w-3 text-muted-foreground/75" style={iconColor ? { color: iconColor } : undefined} />;
   // The icon is the row's only word for its project, so it speaks.
   const labelProps = label ? { role: 'img', 'aria-label': label } : {};
@@ -141,7 +169,11 @@ export const SessionTimelineRowBody: React.FC<Props> = ({
     <span className="typography-micro leading-none text-muted-foreground/50 tabular-nums">{timeSlot}</span>
   </span>;
   const titleLine = (
-    <div dir="auto" className={cn('oc-ui-start-align min-w-0 flex-1 truncate typography-ui-label font-normal', actionsMaskClass, titleClassName)}>{title}</div>
+    <div className={cn('@container min-w-0 flex-1 overflow-hidden', actionsMaskClass)}>
+      {/* Session titles read one step larger than the project labels above
+          them, the way Codex lists chats under a folder. */}
+      <SidebarTitle className={titleClassName}>{title}</SidebarTitle>
+    </div>
   );
   if (compact) {
     return <div className={cn('@container relative flex w-full min-w-0 items-center gap-1', actionsReserveClass)}>
@@ -161,7 +193,9 @@ export const SessionTimelineRowBody: React.FC<Props> = ({
         {meta}
       </div>
       <div className="flex h-5 w-full min-w-0 items-center">
-        <div dir="auto" className={cn('oc-ui-start-align min-w-0 flex-1 truncate typography-ui-label font-normal', titleClassName)}>{title}</div>
+        <div className={cn('@container min-w-0 flex-1 overflow-hidden')}>
+          <SidebarTitle className={titleClassName}>{title}</SidebarTitle>
+        </div>
       </div>
     </> : (
       <div className={cn('@container relative flex h-5 w-full min-w-0 items-center gap-1', actionsReserveClass)}>
@@ -180,7 +214,8 @@ export const SessionTimelineRowBody: React.FC<Props> = ({
           {spaceMark
             // `Icon` hides itself from assistive tech; the space's mark is the row's only word for "space", so it speaks.
             ? <Icon name="box-3" className="h-3 w-3 flex-shrink-0 text-muted-foreground/40" aria-hidden={false} role="img" aria-label={spaceMark} />
-            : <Icon name="git-branch" className="h-3 w-3 flex-shrink-0 text-muted-foreground/40" />}
+            : null}
+          {/* No git-branch glyph beside every branch label — text alone is enough. */}
           <span className="min-w-0 truncate typography-micro text-muted-foreground/50">{branchLabel}</span>
         </>
       ) : null)}
@@ -188,9 +223,7 @@ export const SessionTimelineRowBody: React.FC<Props> = ({
         {goal}
         {zombieIndicator ?? prBadge}
         {badges}
-        {/* PR-icon size: a 16px box leaves the logo's own inner margin
-            wide enough to pull it visibly in from the time above. */}
-        {providerId ? <ProviderLogo providerId={providerId} className="h-3 w-3 flex-shrink-0 opacity-45" /> : null}
+        {/* Provider logo removed from rows: it is decoration, not state. */}
       </span>
     </div>
   </div>;

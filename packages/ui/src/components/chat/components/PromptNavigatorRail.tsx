@@ -52,14 +52,12 @@ const TICK_FOCUS_WIDTH_PX = 20;
 // center vertically. Fixed pitch keeps the glide/virtualization math simple.
 // Each row renders as a bordered card inset within its pitch slot so
 // neighbouring prompts read as separate items instead of one text run.
-const PANEL_ROW_HEIGHT_PX = 54;
-const PANEL_ROW_INSET_Y_PX = 4;
-const PANEL_MAX_ROWS = 8;
-const PANEL_SCROLL_MARGIN_ROWS = 2;
 const PANEL_HIDE_DELAY_MS = 160;
 // A pointer only passing over the rail on its way elsewhere must not flash
-// the panel open; it opens once the pointer rests on the rail this long.
+// the preview open; it opens once the pointer rests on the rail this long.
 const PANEL_SHOW_DELAY_MS = 220;
+// Wheel deltas are stepped in these units so one notch moves one tick.
+const WHEEL_STEP_PX = 40;
 
 const buildPromptEntries = (
     turnIds: string[],
@@ -128,8 +126,10 @@ export function PromptNavigatorRail({
             }
             const containerRect = container.getBoundingClientRect();
             const columnRect = column.getBoundingClientRect();
-            const fullGutterLeft = containerRect.right - GUTTER_RIGHT_OFFSET_PX - GUTTER_WIDTH_PX;
-            setIsNarrowGutter(columnRect.right > fullGutterLeft);
+            // Gutter sits on the start edge now; shrink when the message
+            // column reaches under it so content clicks stay clickable.
+            const fullGutterRight = containerRect.left + GUTTER_RIGHT_OFFSET_PX + GUTTER_WIDTH_PX;
+            setIsNarrowGutter(columnRect.left < fullGutterRight);
         };
         measure();
         const observer = new ResizeObserver(measure);
@@ -472,11 +472,11 @@ export function PromptNavigatorRail({
             event.preventDefault();
             event.stopPropagation();
             wheelRemainderRef.current += event.deltaY;
-            const steps = Math.trunc(wheelRemainderRef.current / PANEL_ROW_HEIGHT_PX);
+            const steps = Math.trunc(wheelRemainderRef.current / WHEEL_STEP_PX);
             if (steps === 0) {
                 return;
             }
-            wheelRemainderRef.current -= steps * PANEL_ROW_HEIGHT_PX;
+            wheelRemainderRef.current -= steps * WHEEL_STEP_PX;
             const current = highlightedIndexRef.current;
             if (current === null) {
                 return;
@@ -492,49 +492,6 @@ export function PromptNavigatorRail({
     }, [ensureWindowContains, isPanelVisible]);
 
     const highlightedPrompt = highlightedIndex !== null ? prompts[highlightedIndex] : undefined;
-    // Panel list geometry: centered on the highlight when the panel opens,
-    // then a dead zone — the list only glides when the highlighted row gets
-    // within one row of the window edge, so small pointer moves don't scroll.
-    const panelVisibleRows = Math.min(prompts.length, PANEL_MAX_ROWS);
-    const panelHeight = panelVisibleRows * PANEL_ROW_HEIGHT_PX;
-    const panelMaxOffset = prompts.length * PANEL_ROW_HEIGHT_PX - panelHeight;
-    const clampPanelOffset = (offset: number) => Math.max(0, Math.min(panelMaxOffset, offset));
-    const panelOffsetRef = React.useRef<number | null>(null);
-    let panelScrollOffset = 0;
-    if (highlightedIndex === null) {
-        panelOffsetRef.current = null;
-    } else if (panelOffsetRef.current === null) {
-        panelScrollOffset = clampPanelOffset(
-            highlightedIndex * PANEL_ROW_HEIGHT_PX - (panelHeight - PANEL_ROW_HEIGHT_PX) / 2,
-        );
-        panelOffsetRef.current = panelScrollOffset;
-    } else {
-        let offset = panelOffsetRef.current;
-        // Keep two rows of context visible above and below the highlight —
-        // the dead zone is the middle third of the window, so the list glides
-        // noticeably before the highlight reaches the edge but small pointer
-        // moves around the center don't scroll.
-        const highestAllowed = (highlightedIndex - PANEL_SCROLL_MARGIN_ROWS) * PANEL_ROW_HEIGHT_PX;
-        const lowestAllowed =
-            (highlightedIndex + 1 + PANEL_SCROLL_MARGIN_ROWS) * PANEL_ROW_HEIGHT_PX - panelHeight;
-        if (offset > highestAllowed) {
-            offset = highestAllowed;
-        } else if (offset < lowestAllowed) {
-            offset = lowestAllowed;
-        }
-        panelScrollOffset = clampPanelOffset(offset);
-        panelOffsetRef.current = panelScrollOffset;
-    }
-    // Only rows near the visible window are rendered; extra rows slide in
-    // under the mask during the glide instead of popping in at the edges.
-    const panelFirstVisibleRow = Math.floor(panelScrollOffset / PANEL_ROW_HEIGHT_PX);
-    const panelSliceStart = Math.max(0, panelFirstVisibleRow - TICK_OVERSCAN);
-    const panelSliceEnd = Math.min(prompts.length, panelFirstVisibleRow + panelVisibleRows + TICK_OVERSCAN);
-    const panelClippedAbove = panelScrollOffset > 0;
-    const panelClippedBelow = panelScrollOffset < panelMaxOffset;
-    const panelMask = panelClippedAbove || panelClippedBelow
-        ? `linear-gradient(to bottom, ${panelClippedAbove ? 'transparent, black 10%' : 'black'}, ${panelClippedBelow ? 'black 90%, transparent' : 'black'})`
-        : undefined;
     // Overscan a few ticks beyond the window so they slide in under the
     // gradient mask instead of popping into existence at the edges.
     const overscanStart = Math.max(0, clampedWindowStart - TICK_OVERSCAN);
@@ -552,17 +509,17 @@ export function PromptNavigatorRail({
         <nav
             ref={navRef}
             aria-label={t('chat.promptNavigator.aria')}
-            className="pointer-events-none absolute inset-e-3.5 top-1/2 z-20 -translate-y-1/2"
+            className="pointer-events-none absolute inset-s-3.5 top-1/2 z-20 -translate-y-1/2"
         >
-            <div className="pointer-events-auto flex flex-col items-end">
+            <div className="pointer-events-auto flex flex-col items-start">
                 {canLoadEarlier ? (
                     <button
                         type="button"
                         tabIndex={-1}
                         className={cn(
                             // Nudge so the icon centers over the tick column
-                            // (ticks sit at inset-e-1 with a 10px base width).
-                            '-me-px mb-1.5 flex size-5 shrink-0 items-center justify-center rounded-full',
+                            // (ticks sit at inset-s-1 with a 10px base width).
+                            '-ms-px mb-1.5 flex size-5 shrink-0 items-center justify-center rounded-full',
                             'text-muted-foreground transition-colors',
                             'hover:bg-interactive-hover/60 hover:text-foreground',
                             isLoadingOlder ? 'cursor-wait opacity-70' : undefined,
@@ -629,7 +586,7 @@ export function PromptNavigatorRail({
                                         aria-selected={isHighlighted}
                                         aria-current={isActive ? 'true' : undefined}
                                         aria-label={prompt.preview.trim() || emptyPreviewLabel}
-                                        className="pointer-events-none absolute inset-e-1 flex items-center justify-end"
+                                        className="pointer-events-none absolute inset-s-1 flex items-center justify-start"
                                         style={{ top: `${index * TICK_PITCH_PX}px`, height: `${TICK_PITCH_PX}px` }}
                                     >
                                         <span
@@ -649,87 +606,25 @@ export function PromptNavigatorRail({
                             })}
                         </div>
                     </div>
-                    {highlightedPrompt && highlightedIndex !== null ? (
+                    {highlightedPrompt ? (
                         <div
                             ref={panelRef}
                             className={cn(
-                                'pointer-events-auto absolute inset-e-full top-1/2 z-30 me-3 -translate-y-1/2',
+                                'pointer-events-auto absolute inset-s-full top-1/2 z-30 ms-3 -translate-y-1/2',
                                 'w-[min(20rem,calc(100vw-6rem))] overflow-hidden rounded-xl',
-                                // Reads as a dropdown: the menus' glass and light, plain rows.
-                                'oc-glass-popover oc-glass-floating py-1',
+                                'oc-glass-popover oc-glass-floating px-3 py-2',
                             )}
                             onMouseEnter={cancelScheduledHide}
                             onMouseLeave={scheduleHide}
                             onMouseMove={(event) => event.stopPropagation()}
-                            onClick={(event) => event.stopPropagation()}
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                if (highlightedIndex !== null) handleSelect(highlightedIndex);
+                            }}
                         >
-                            <div
-                                className="relative overflow-hidden"
-                                style={{
-                                    height: `${panelVisibleRows * PANEL_ROW_HEIGHT_PX}px`,
-                                    maskImage: panelMask,
-                                    WebkitMaskImage: panelMask,
-                                }}
-                            >
-                                {/* The list glides so the highlighted row stays
-                                    centered while scrubbing the rail. */}
-                                <div
-                                    className="absolute inset-x-0 top-0 transition-transform duration-200 ease-out"
-                                    style={{
-                                        height: `${prompts.length * PANEL_ROW_HEIGHT_PX}px`,
-                                        transform: `translateY(-${panelScrollOffset}px)`,
-                                    }}
-                                >
-                                    {prompts.slice(panelSliceStart, panelSliceEnd).map((prompt, slot) => {
-                                        const index = panelSliceStart + slot;
-                                        const isActive = prompt.turnId === activeTurnId;
-                                        const isHighlighted = highlightedIndex === index;
-                                        return (
-                                            <div
-                                                key={prompt.turnId}
-                                                role="option"
-                                                aria-selected={isHighlighted}
-                                                aria-current={isActive ? 'true' : undefined}
-                                                title={isActive ? currentPromptLabel : undefined}
-                                                className="absolute inset-x-0 cursor-pointer px-1.5"
-                                                style={{
-                                                    top: `${index * PANEL_ROW_HEIGHT_PX + PANEL_ROW_INSET_Y_PX}px`,
-                                                    height: `${PANEL_ROW_HEIGHT_PX - PANEL_ROW_INSET_Y_PX * 2}px`,
-                                                }}
-                                                onMouseMove={() => {
-                                                    cancelScheduledHide();
-                                                    if (highlightedIndexRef.current !== index) {
-                                                        ensureWindowContains(index);
-                                                        setHighlightedIndex(index);
-                                                    }
-                                                }}
-                                                onClick={() => handleSelect(index)}
-                                            >
-                                                <div
-                                                    className={cn(
-                                                        'flex h-full items-center rounded-lg px-2',
-                                                        isActive
-                                                            ? 'bg-[var(--interactive-selection)]'
-                                                            : isHighlighted && 'bg-[var(--interactive-hover)]',
-                                                    )}
-                                                >
-                                                    <span
-                                                        className={cn(
-                                                            // Fill both clamp lines to the edge instead of
-                                                            // leaving a ragged gap before a long next word.
-                                                            'min-w-0 flex-1 line-clamp-2 [overflow-wrap:anywhere] typography-meta',
-                                                            isActive
-                                                                ? 'text-interactive-selection-foreground'
-                                                                : isHighlighted ? 'text-foreground' : 'text-foreground/75',
-                                                        )}
-                                                    >
-                                                        {prompt.preview.trim() || emptyPreviewLabel}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                            {/* One preview only: the tick under the pointer. */}
+                            <div className="line-clamp-3 [overflow-wrap:anywhere] typography-meta text-foreground">
+                                {highlightedPrompt.preview.trim() || emptyPreviewLabel}
                             </div>
                         </div>
                     ) : null}
