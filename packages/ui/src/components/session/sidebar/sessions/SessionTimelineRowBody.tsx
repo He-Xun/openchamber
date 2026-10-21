@@ -10,7 +10,8 @@ import { useThemeSystem } from '@/contexts/useThemeSystem';
  * constant pixel speed: the element measures its overflow against the clip
  * box and writes the duration (and the shift distance) as custom properties
  * the keyframes read. A barely-truncated title still gets a short glide
- * instead of a one-frame nudge.
+ * instead of a one-frame nudge. The shift flips sign in RTL, where the
+ * clipped tail is on the left and the text must slide right to reveal it.
  */
 const SidebarTitle: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => {
     const titleRef = React.useRef<HTMLDivElement | null>(null);
@@ -19,10 +20,15 @@ const SidebarTitle: React.FC<{ children: React.ReactNode; className?: string }> 
         const clip = el?.parentElement;
         if (!el || !clip) return;
         const overflow = el.scrollWidth - clip.clientWidth;
-        const shift = -Math.max(overflow, 1);
+        const magnitude = Math.max(overflow, 1);
+        // Direction of the rendered box; fall back to LTR where the view
+        // cannot compute style (tests, detached nodes).
+        const view = el.ownerDocument?.defaultView;
+        const rtl = view?.getComputedStyle?.(el).direction === 'rtl';
+        const shift = rtl ? magnitude : -magnitude;
         // ~48px/s feels even across short and long titles; 1.25s floor keeps
         // a title that only just ellipsizes visibly moving.
-        const durationSec = Math.max(Math.abs(shift) / 48, 1.25);
+        const durationSec = Math.max(magnitude / 48, 1.25);
         el.style.setProperty('--oc-title-shift', `${shift}px`);
         el.style.setProperty('--oc-title-duration', `${durationSec}s`);
     }, [children]);

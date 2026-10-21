@@ -5,6 +5,8 @@ import { normalizePath } from '@/lib/pathNormalization';
 import { isChatDirectoryPath } from '@/lib/chatDirectories';
 import { resolveGlobalSessionDirectory } from '@/stores/useGlobalSessionsStore';
 import { getPinnedSessionKey } from '@/lib/sessionPins';
+import { getLinkedGitHubPullRequests, getLinkedSidebarChanges, getLinkedSidebarIssues } from '@/lib/linkedIssues';
+import type { Session } from '@/lib/opencode/model';
 import type { WorktreeMetadata } from '@/types/worktree';
 import type { SessionNode } from '../types';
 
@@ -357,6 +359,36 @@ export const resolveTooltipBranchLabel = (
     ? (secondaryMeta.branchLabel ?? null)
     : (worktreeBranch ?? null)
 );
+
+/**
+ * Whether a row's second line carries real visible text: a resolved branch, or
+ * a tracker ref (a session-linked PR / MR / issue, or one that a worktree's
+ * branch + path can surface). A lone glyph — the project icon, a goal marker —
+ * is not content and keeps the row on one line.
+ *
+ * Shared by the row model's height estimate and `SessionNodeItem`'s render so
+ * the virtualizer never reserves a different height than the row draws.
+ * `includeLinkedRefs` is false where the runtime shows no tracker badges
+ * (VS Code).
+ */
+export const sessionHasSecondLineText = (
+  session: Session | null | undefined,
+  meta: { branchLabel?: string | null } | null | undefined,
+  worktreeBranch: string | null | undefined,
+  options: { includeLinkedRefs?: boolean } = {},
+): boolean => {
+  const branch = resolveTooltipBranchLabel(meta, worktreeBranch ?? null);
+  if (branch?.trim()) return true;
+  // A worktree's branch + path can surface a tracker ref at render time.
+  if (worktreeBranch?.trim()) return true;
+  if (options.includeLinkedRefs === false) return false;
+  // Session-linked PRs, merge requests and issues carry a ref label even
+  // when the session has no branch at all. GitHub PRs go through their own
+  // lookup; the rest land in the sidebar change/issue lists.
+  return getLinkedGitHubPullRequests(session).length > 0
+    || getLinkedSidebarChanges(session).length > 0
+    || getLinkedSidebarIssues(session).length > 0;
+};
 
 /**
  * The worktree directory and branch whose change request a row shows. The

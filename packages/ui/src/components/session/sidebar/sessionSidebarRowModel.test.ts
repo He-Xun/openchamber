@@ -655,13 +655,27 @@ describe('buildSessionSidebarRowModel', () => {
     expect(model.rows.some((row) => row.kind === 'show-control')).toBe(false);
   });
 
-  test('second-line estimate matches the renderer: branch or worktree ref, never a lone glyph', () => {
+  test('second-line estimate matches the renderer: branch or tracker ref, never a lone glyph', () => {
     // SAFETY: only the fields the row model reads are supplied.
     const worktree = { branch: 'feature', path: '/wt' } as SessionNode['worktree'];
     const worktreeNode = (id: string): SessionNode => ({ session: session(id), children: [], worktree });
+    // A session-linked PR/issue with no worktree at all still grows a second
+    // line in the renderer (the ref label), so the estimate must too.
+    // SAFETY: only the linked_issues metadata the row model reads is supplied.
+    const linkedNode = (id: string): SessionNode => ({
+      session: {
+        ...session(id),
+        metadata: { openchamber: { linked_issues: [
+          { id: 'acme/app#7', number: 7, title: 'PR', url: 'https://github.com/acme/app/pull/7', kind: 'pull', author: 'someone', linkedAt: 1 },
+        ] } },
+      } as Session,
+      children: [],
+      worktree: null,
+    });
     const input = args([project([group([
       node('plain'),
       worktreeNode('worktree'),
+      linkedNode('linked'),
     ])])]);
     input.viewMode = 'timeline';
     input.timelineItems = [
@@ -670,6 +684,7 @@ describe('buildSessionSidebarRowModel', () => {
       { ...timelineItem('plain'), node: node('plain'), secondaryMeta: { projectLabel: 'repo', branchLabel: null } },
       { ...timelineItem('worktree'), node: worktreeNode('worktree'), secondaryMeta: { projectLabel: 'repo', branchLabel: null } },
       { ...timelineItem('branched'), node: node('branched'), secondaryMeta: { projectLabel: 'repo', branchLabel: 'feature' } },
+      { ...timelineItem('linked'), node: linkedNode('linked'), secondaryMeta: null },
     ];
 
     const sessions = buildSessionSidebarRowModel(input).rows.filter((row) => row.kind === 'session');
@@ -680,6 +695,8 @@ describe('buildSessionSidebarRowModel', () => {
     // Two lines (52) when a branch or a worktree's tracker ref is real text.
     expect(byId.get('worktree')?.estimateSize).toBe(52);
     expect(byId.get('branched')?.estimateSize).toBe(52);
+    // Two lines (52) for a session-linked ref with no branch and no worktree.
+    expect(byId.get('linked')?.estimateSize).toBe(52);
   });
 
   for (const viewMode of ['projects', 'timeline'] as const) {

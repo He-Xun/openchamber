@@ -99,7 +99,7 @@ export function PromptNavigatorRail({
     isLoadingOlder,
     onLoadEarlier,
 }: PromptNavigatorRailProps) {
-    const { t } = useI18n();
+    const { t, direction } = useI18n();
     // The keyboard shortcut drives the main chat's rail; a pinned column's
     // rail neither opens on it nor closes it.
     const { pinned } = useChatColumnActions();
@@ -113,6 +113,8 @@ export function PromptNavigatorRail({
 
     // Shrink the hit zone whenever the message column reaches under the
     // full-width gutter, so bubble clicks (expand/collapse) stay clickable.
+    // The gutter sits on the inline start, so the edge to compare flips with
+    // the layout direction.
     React.useEffect(() => {
         const container = navRef.current?.parentElement;
         if (!container || typeof ResizeObserver === 'undefined') {
@@ -126,16 +128,20 @@ export function PromptNavigatorRail({
             }
             const containerRect = container.getBoundingClientRect();
             const columnRect = column.getBoundingClientRect();
-            // Gutter sits on the start edge now; shrink when the message
-            // column reaches under it so content clicks stay clickable.
-            const fullGutterRight = containerRect.left + GUTTER_RIGHT_OFFSET_PX + GUTTER_WIDTH_PX;
-            setIsNarrowGutter(columnRect.left < fullGutterRight);
+            const gutterOuter = GUTTER_RIGHT_OFFSET_PX + GUTTER_WIDTH_PX;
+            if (direction === 'rtl') {
+                // Gutter on the physical right: shrink when the column
+                // reaches past its inner edge.
+                setIsNarrowGutter(columnRect.right > containerRect.right - gutterOuter);
+            } else {
+                setIsNarrowGutter(columnRect.left < containerRect.left + gutterOuter);
+            }
         };
         measure();
         const observer = new ResizeObserver(measure);
         observer.observe(container);
         return () => observer.disconnect();
-    }, []);
+    }, [direction]);
 
     const prompts = React.useMemo(
         () => buildPromptEntries(turnIds, previewsByTurnId, t),

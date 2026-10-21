@@ -67,7 +67,6 @@ function RunSidebarRowComponent({
   // timeline row. Their second line always carries the lane count, so they
   // render two lines (Codex-style) instead of collapsing to one.
   const isTimelineRow = isMultiLineTimelineContext(renderContext) || renderContext !== 'project';
-  const isOneLineRow = false;
   // The list by time names the project on a first line of its own.
   const hasProjectLine = renderContext === 'timeline-by-time';
   // Only Pinned, In work and the list by time mix projects; under a project
@@ -99,16 +98,15 @@ function RunSidebarRowComponent({
         onClick={openOverview}
         // The Tree view's one-line rows keep the tree slot for their state,
         // like the session rows beside them; List rows stay flat.
-        style={{ paddingInlineStart: isOneLineRow ? sessionTreeRowPaddingLeft(depth) : sessionTimelineRowPaddingLeft(depth) }}
+        style={{ paddingInlineStart: sessionTimelineRowPaddingLeft(depth) }}
         className={cn(
           'group relative my-1 flex w-full cursor-pointer items-center rounded-md pe-2.5 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          isOneLineRow ? 'gap-1.5 py-1' : 'py-1.5',
+          'py-1.5',
           isActive ? 'bg-interactive-selection/70 text-interactive-selection-foreground' : 'hover:bg-interactive-hover/60',
         )}
       >
-        {isOneLineRow ? <span className="inline-flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center">{activity}</span> : null}
         <SessionTimelineRowBody
-          compact={isOneLineRow}
+          compact={false}
           project={timelineProject}
           projectLabel={projectLabel}
           projectLine={hasProjectLine}
@@ -121,7 +119,7 @@ function RunSidebarRowComponent({
               <span className="min-w-0 truncate typography-micro text-muted-foreground/50">{laneCountLabel}</span>
             </>
           )}
-          statusDot={isOneLineRow ? null : activity}
+          statusDot={activity}
           pinnedMarker={null}
           timeSlot={formatSessionCompactDateLabel(run.lastActivity)}
           directoryIndicator={null}

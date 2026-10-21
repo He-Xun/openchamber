@@ -5,7 +5,7 @@ import { isSessionPinned } from '@/lib/sessionPins';
 import type { GroupSearchData, SessionGroup, SessionNode } from './types';
 import type { ProjectSection } from './projects/sessionProjectRender';
 import { buildGroupRenderDescriptors } from './projects/sessionProjectRender';
-import { normalizeFolderRoots, selectFolderIdsForProjection, selectFolderRootNodes, type BlockingBadgeSessionScope } from './sessions/sessionNodeItemUtils';
+import { normalizeFolderRoots, selectFolderIdsForProjection, selectFolderRootNodes, sessionHasSecondLineText, type BlockingBadgeSessionScope } from './sessions/sessionNodeItemUtils';
 import { getSessionFolderIdentityKey, getSessionFolderOwnerKey, getSessionFolderScopes, isArchivedFolderScope } from './sessions/sessionFolderIdentity';
 import type { SessionRowOrderEntry } from './sessions/sessionRowOrder';
 import { computeSessionTreeGuides, type SessionTreeGuide } from './sessions/sessionTreeGeometry';
@@ -250,20 +250,13 @@ const estimateSessionRow = (context: SessionSidebarRenderContext, hasSecondLine 
 
 /**
  * Whether a session row grows a second line (Codex-style two-line rows).
- * Must mirror `SessionNodeItem`'s `hasSecondLineContent`: the resolved branch
- * (an explicit `null` in `meta.branchLabel` filters the worktree fallback),
- * or a tracker ref — which arrives from the worktree's branch + path, so a
- * worktree counts even while its ref is still loading. Keeping the two
- * predicates identical stops the virtualizer from reserving one height and
- * rendering another.
+ * Delegates to `sessionHasSecondLineText`, the same predicate the renderer
+ * uses, so the virtualizer never reserves a different height than the render.
  */
 const sessionHasSecondLineMeta = (
   node: SessionNode,
   meta: { projectLabel?: string | null; branchLabel?: string | null } | null | undefined,
-): boolean => {
-  const branch = meta ? (meta.branchLabel ?? null) : (node.worktree?.branch ?? null);
-  return Boolean(branch?.trim() || node.worktree?.branch?.trim());
-};
+): boolean => sessionHasSecondLineText(node.session, meta, node.worktree?.branch ?? null);
 // Chats open on a short page in both views, with pinned chats on top of it.
 const CHATS_INITIAL_LIMIT = 3;
 const CHATS_INCREMENT = 7;

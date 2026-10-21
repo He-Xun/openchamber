@@ -43,7 +43,7 @@ import { getSyncSessionMaterializationStatus } from '@/sync/sync-refs';
 import { useViewportStore, viewportSessionKey } from '@/sync/viewport-store';
 import { DraggableSessionRow } from '../folders/sessionFolderDnd';
 import { useSessionRowOrderRegistry } from './sessionRowOrder';
-import { canShowSessionWorktreeMenu, getSessionWorktreeMenuDisabled, nodeContainsSessionId, nodeHasPinnedMembershipChange, resolveSessionPrLookup, resolveTooltipBranchLabel, selectBlockingBadgeSessionScopes, type BlockingBadgeSessionScope } from './sessionNodeItemUtils';
+import { canShowSessionWorktreeMenu, getSessionWorktreeMenuDisabled, nodeContainsSessionId, nodeHasPinnedMembershipChange, resolveSessionPrLookup, resolveTooltipBranchLabel, selectBlockingBadgeSessionScopes, sessionHasSecondLineText, type BlockingBadgeSessionScope } from './sessionNodeItemUtils';
 import { useSessionRowMenuState } from './useSessionRowMenuState';
 import { buildActiveSessionTreeFromCache, collectSessionMoveDescendants } from './sessionSubtreeActions';
 import type { SessionNode } from '../types';
@@ -693,13 +693,14 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   // Codex-style, every section (Chats/Pinned/Projects/In work): a row keeps
   // one line when its second line would be empty or only a glyph (the project
   // icon's label is a tooltip, not visible text). It grows to two lines for
-  // real visible text — a branch or a tracker ref. A worktree always counts:
-  // its ref may still be loading, and `sessionHasSecondLineMeta` reserves the
-  // same height so the virtualizer never disagrees with the render.
-  const hasSecondLineContent = Boolean(
-    tooltipBranchLabel?.trim()
-    || (primaryRef && primaryRef.label?.trim())
-    || node.worktree?.branch?.trim(),
+  // real visible text — a branch or a tracker ref (session-linked PR / MR /
+  // issue, or one a worktree's branch + path can surface). The shared
+  // predicate keeps `sessionHasSecondLineMeta`'s height estimate in step.
+  const hasSecondLineContent = sessionHasSecondLineText(
+    session,
+    secondaryMeta,
+    node.worktree?.branch ?? null,
+    { includeLinkedRefs: !isVSCode },
   );
   const isOneLineTimelineRow = !isMultiLineContext && !hasSecondLineContent;
   // Project-tree rows without a second line keep the gutter layout (state and
@@ -1090,7 +1091,6 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   // rows, flat by design, always show it.
   // Codex-style: the live state rides on the row's right edge (statusDot),
   // not in the left tree slot, so it reads at a glance next to the time.
-  const stateInSlot = false;
   const treeChevron = hasChildren ? (
     <span
       role="button"
@@ -1109,7 +1109,6 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
       }}
       className={cn(
         'inline-flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        stateInSlot && 'opacity-0 transition-opacity group-hover:opacity-100 group-has-[:focus-visible]:opacity-100',
       )}
       aria-label={isExpanded
         ? t('sessions.sidebar.session.subsessions.collapse')
@@ -1119,18 +1118,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
       <FileTreeChevron expanded={isExpanded} />
     </span>
   ) : null;
-  const treeSlot = !hasTreeSlot ? null : stateInSlot ? (
-    <span className="relative inline-flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center">
-      {treeChevron}
-      {treeChevron ? (
-        // Under the pointer the chevron takes over, so the mark passes the
-        // pointer through to it.
-        <span className="pointer-events-none absolute inset-0 inline-flex items-center justify-center transition-opacity group-hover:opacity-0 group-has-[:focus-visible]:opacity-0">
-          {liveStateMark}
-        </span>
-      ) : liveStateMark}
-    </span>
-  ) : treeChevron ?? <span aria-hidden className="h-3.5 w-3.5 flex-shrink-0" />;
+  const treeSlot = !hasTreeSlot ? null : treeChevron ?? <span aria-hidden className="h-3.5 w-3.5 flex-shrink-0" />;
 
   const streamingIndicator = isZombie
     ? <Icon name="error-warning" className="h-4 w-4 text-status-warning" />
@@ -1749,7 +1737,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
           : isStreaming ? 'text-foreground' : 'text-foreground/90'}
       branchLabel={tooltipBranchLabel}
       spaceMark={branchInSpace ? t('sessions.sidebar.group.space') : null}
-      statusDot={stateInSlot ? null : liveStateMark}
+      statusDot={liveStateMark}
       pinnedMarker={isPinnedSession && !isSessionActionPending && !hidePinnedMarker ? pinnedMarkerContent : null}
       timeSlot={showActivityDuration
         ? <SessionActivityDuration sessionId={session.id} running={isStreaming} className="typography-micro" />
