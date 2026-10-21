@@ -5,7 +5,7 @@ import { isSessionPinned } from '@/lib/sessionPins';
 import type { GroupSearchData, SessionGroup, SessionNode } from './types';
 import type { ProjectSection } from './projects/sessionProjectRender';
 import { buildGroupRenderDescriptors } from './projects/sessionProjectRender';
-import { normalizeFolderRoots, selectFolderIdsForProjection, selectFolderRootNodes, sessionHasSecondLineText, type BlockingBadgeSessionScope } from './sessions/sessionNodeItemUtils';
+import { normalizeFolderRoots, selectFolderIdsForProjection, selectFolderRootNodes, resolveSessionHasSecondLine, type BlockingBadgeSessionScope, type DetailedRowsMode } from './sessions/sessionNodeItemUtils';
 import { getSessionFolderIdentityKey, getSessionFolderOwnerKey, getSessionFolderScopes, isArchivedFolderScope } from './sessions/sessionFolderIdentity';
 import type { SessionRowOrderEntry } from './sessions/sessionRowOrder';
 import { computeSessionTreeGuides, type SessionTreeGuide } from './sessions/sessionTreeGeometry';
@@ -153,8 +153,13 @@ export type SessionSidebarRowModelArgs = {
   workItems?: readonly SessionSidebarActivityItem[];
   /** Every session listed in the Pinned or In work zone. */
   zoneSessionIds?: ReadonlySet<string>;
-  /** Pinned and In work rows in the Tree view: two lines when set, one otherwise. */
-  detailedZoneRows?: boolean;
+  /**
+   * Display menu's "Detailed rows". `auto` (default) grows a second line only
+   * for real visible text; `on` and `off` force it. Must match the renderer.
+   */
+  detailedRows?: DetailedRowsMode;
+  /** False on VS Code, where tracker badges (and their second line) never render. */
+  includeLinkedRefs?: boolean;
   foldersMap: SessionFoldersMap;
   groupSearchDataByGroup: WeakMap<SessionGroup, GroupSearchData>;
   normalizedQuery: string;
@@ -236,6 +241,7 @@ export const countSessionSearchMatches = (nodes: readonly SessionNode[], normali
 
 const EMPTY_FOLDERS: readonly SessionFolder[] = [];
 const EMPTY_ZONE_SESSION_IDS: ReadonlySet<string> = new Set();
+const EMPTY_PINNED_SESSION_IDS: Set<string> = new Set();
 const SESSION_ESTIMATE = 36;
 const TIMELINE_SESSION_ESTIMATE = 52;
 // A third fixed line: the 20px title line and its 1px gap.
@@ -250,13 +256,21 @@ const estimateSessionRow = (context: SessionSidebarRenderContext, hasSecondLine 
 
 /**
  * Whether a session row grows a second line (Codex-style two-line rows).
- * Delegates to `sessionHasSecondLineText`, the same predicate the renderer
- * uses, so the virtualizer never reserves a different height than the render.
+ * Delegates to `resolveSessionHasSecondLine`, the same decision the renderer
+ * uses under the user's Detailed rows choice, so the virtualizer never
+ * reserves a different height than the render.
  */
 const sessionHasSecondLineMeta = (
   node: SessionNode,
   meta: { projectLabel?: string | null; branchLabel?: string | null } | null | undefined,
-): boolean => sessionHasSecondLineText(node.session, meta, node.worktree?.branch ?? null);
+  options: { detailedRows?: DetailedRowsMode; includeLinkedRefs?: boolean } = {},
+): boolean => resolveSessionHasSecondLine(
+  options.detailedRows ?? 'auto',
+  node.session,
+  meta,
+  node.worktree?.branch ?? null,
+  { includeLinkedRefs: options.includeLinkedRefs },
+);
 // Chats open on a short page in both views, with pinned chats on top of it.
 const CHATS_INITIAL_LIMIT = 3;
 const CHATS_INCREMENT = 7;
@@ -300,6 +314,8 @@ const compareNodes = (
   }
   // Pinned sessions also stay in their project, sorted to the top of it
   // (ChatGPT-style: the same chat lives in Pinned and under its project).
+  // Folders pass `EMPTY_PINNED_SESSION_IDS`: a pin never reshuffles the
+  // filed order, it only lifts inside the project's root list.
   return compareSessionsByLifecycleOrder(left.session, right.session, pinnedSessionIds, EMPTY_SESSION_ORDER_RANKS);
 };
 
@@ -474,7 +490,10 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
         key: rowKey,
         estimateSize: estimateSessionRow(
           options.renderContext,
-          sessionHasSecondLineMeta(current.node, rowMeta),
+          sessionHasSecondLineMeta(current.node, rowMeta, {
+            detailedRows: args.detailedRows,
+            includeLinkedRefs: args.includeLinkedRefs,
+          }),
         ),
         node: current.node,
         blockingBadgeSessionScopes: current.depth === baseDepth
@@ -569,7 +588,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
         scopeKey,
         scopeDirectory: directory,
         ownerKey,
-        nodes: selectFolderRootNodes(folder.sessionIds, indexed.byId).sort((left, right) => compareNodes(left, right, pinned, args.sessionOrderIndex)),
+        nodes: selectFolderRootNodes(folder.sessionIds, indexed.byId).sort((left, right) => compareNodes(left, right, EMPTY_PINNED_SESSION_IDS, args.sessionOrderIndex)),
       }))
     ));
     const visibleFolderKeys = selectFolderIdsForProjection(folderEntries.map((entry) => ({

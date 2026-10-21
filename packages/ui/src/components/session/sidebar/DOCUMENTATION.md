@@ -119,7 +119,7 @@ Pinned and In work list and without Reorder projects; the sheet is not
 virtualized, so the rows arrive 40 at a time as the end scrolls near (an
 intersection sentinel in `MobileTimelineList.tsx`), with no Show more row. The
 phone's Tree view follows the desktop tree: Chats, Pinned and In work list
-tree rows at level 0 (two-line timeline rows when Detailed rows is on, the
+tree rows at level 0 (two-line timeline rows under Detailed rows `on`, the
 zones showing all their sessions at once), and project sessions are
 tree rows (12px per level, subsession chevron on the left with a
 thumb-sized target) with the desktop's guide lines, worked out while the
@@ -262,16 +262,20 @@ tracker ref); sorted by time, the list's three-line `'timeline-by-time'` rows.
 In Tree they also use `'mixed-compact'`: one line like a Chats
 row, the PR or issue as a coloured mark without its number (its tooltip lists
 the links), the branch, project and model in the whole-row tooltip. The display
-menu's Detailed rows toggle (`detailedZoneRows`, `sidebarDetailedZoneRows`, per
-surface, off by default, offered in Tree only) gives Tree the two-line rows.
-The one-line Tree rows open to their subsessions like the project tree, with
+menu's Detailed rows choice (`detailedRows` / `sidebarDetailedRows`, per
+surface, default `auto`, offered in Tree only) sets every Tree row's second
+line: `auto` grows it only when it carries real visible text (branch or
+tracker ref, `sessionHasSecondLineText`), `on` always keeps it, `off` never
+does. Under `on` a zone row stays flat like the List presentation; under
+`auto` and `off` the one-line Tree rows open to their subsessions like the
+project tree, with
 their own expansion state; in search they show the branches that lead to a
-match (`pruneSessionTreeForSidebarQuery`). The two-line rows, in List and with
-Detailed rows, never expand: their node drops its children, which feed the
-badges instead. A run row in either opens its overview. Search in Tree
+match (`pruneSessionTreeForSidebarQuery`). The flat rows, in List and with
+Detailed rows `on`, never expand: their node drops its children, which feed
+the badges instead. A run row in either opens its overview. Search in Tree
 keeps a root whose subsession matches: those subsessions are nowhere else in
-the sidebar, and the one-line rows open to them; with Detailed rows the root
-stays listed too, though its row cannot open. Search in List matches the
+the sidebar, and the one-line rows open to them; with Detailed rows `on` the
+root stays listed too, though its row cannot open. Search in List matches the
 root itself only, as its project lists do, because List rows never show
 subsessions; the phone's search lists top-level
 sessions only, too. `matchZoneSessionsForSidebarQuery` owns both rules. In Tree the zone counts only sessions that match
@@ -339,8 +343,8 @@ session list of their server, when they move into metadata, a pin whose
 session is gone is dropped, and one that fails to write stays for the next
 load. The phone sheet
 mirrors both toggles: its display menu offers Show pinned section and, in
-Tree, Detailed rows, and its Pinned and In work sections render tree rows in
-Tree unless detailed rows are on. VS Code
+Tree, Detailed rows (`auto` / `on` / `off`), and its Pinned and In work
+sections render tree rows in Tree unless Detailed rows is `on`. VS Code
 shows no section toggles, so it has no Pinned zone and its In work rows stay on
 one line.
 
@@ -353,7 +357,8 @@ pair as the changes file tree). VS Code has no switch and always renders
 the project sort, worktree sort and project display as submenus that name the
 current choice (Tree only; VS Code keeps the project sort), or in List the
 Sessions submenu (by project or by time), then the section
-toggles (Chats, Pinned, In work) and, in Tree, Detailed rows, then Collapse
+toggles (Chats, Pinned, In work) and, in Tree, Detailed rows (`auto` / `on` /
+`off`), then Collapse
 all / Expand all.
 
 - Chats rows are one line in both views. In List they render with

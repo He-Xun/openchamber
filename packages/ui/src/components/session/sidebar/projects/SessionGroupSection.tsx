@@ -387,8 +387,20 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
       if (bIndex === undefined) return -1;
       if (aIndex !== bIndex) return aIndex - bIndex;
     }
-    // Pinned sessions live in the root Pinned zone; project trees keep
-    // ordinary recency order so a pin never reshuffles the folder.
+    // Pinned sessions live in the root Pinned zone and also lift to the top
+    // of their project group (same rule as `compareNodes` in the row model).
+    return compareSessionsByLifecycleOrder(a.session, b.session, pinnedSessionIds, EMPTY_SESSION_ORDER_RANKS);
+  }, [sessionOrderIndex, pinnedSessionIds]);
+  // Folder contents keep ordinary recency order so a pin never reshuffles
+  // what the user filed by hand.
+  const compareFolderSessionNodes = React.useCallback((a: SessionNode, b: SessionNode) => {
+    const aIndex = sessionOrderIndex.get(a.session.id);
+    const bIndex = sessionOrderIndex.get(b.session.id);
+    if (aIndex !== undefined || bIndex !== undefined) {
+      if (aIndex === undefined) return 1;
+      if (bIndex === undefined) return -1;
+      if (aIndex !== bIndex) return aIndex - bIndex;
+    }
     return compareSessionsByLifecycleOrder(a.session, b.session, EMPTY_PINNED_SESSION_IDS, EMPTY_SESSION_ORDER_RANKS);
   }, [sessionOrderIndex]);
 
@@ -513,9 +525,9 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
   }, [sourceGroupNodes]);
 
   const allFoldersForGroupBase = React.useMemo(() => scopeFolders.map(({ folder, scopeKey, scopeDirectory }) => {
-    const nodes = selectFolderRootNodes(folder.sessionIds, nodeBySessionId).sort(compareSessionNodes);
+    const nodes = selectFolderRootNodes(folder.sessionIds, nodeBySessionId).sort(compareFolderSessionNodes);
     return { folder, scopeKey, scopeDirectory, nodes };
-  }), [scopeFolders, nodeBySessionId, compareSessionNodes]);
+  }), [scopeFolders, nodeBySessionId, compareFolderSessionNodes]);
 
   const allFoldersForGroup = React.useMemo(() => {
     const visibleFolderIds = selectFolderIdsForProjection(

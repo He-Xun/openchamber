@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { DetailedRowsMode } from '@/components/session/sidebar/sessions/sessionNodeItemUtils';
 
 type ProjectSortOrder = 'manual' | 'a-z' | 'z-a' | 'date-added' | 'recent';
 // Worktree groups inside a project. 'recent' floats worktrees with the latest
@@ -34,8 +35,12 @@ type SessionDisplayStore = {
   showWorkSection: boolean;
   /** The Pinned block above Chats; on by default (v11). Pinned sessions stay under their project too. */
   showPinnedSection: boolean;
-  /** Pinned and In work rows in the Tree view: one line by default, two with branch, PR and model when set. */
-  detailedZoneRows: boolean;
+  /**
+   * Display menu's "Detailed rows". `auto` (default) grows a second line only
+   * when it carries visible text (branch / tracker ref); `on` and `off` force
+   * the second line either way.
+   */
+  detailedRows: DetailedRowsMode;
   // VS Code only: the compact webview keeps archived buckets inline because it
   // has no room for the full Archive page. Web/desktop ignore this flag and
   // always route archived sessions to the Archive page instead.
@@ -45,7 +50,7 @@ type SessionDisplayStore = {
   setShowChatsSection: (show: boolean) => void;
   setShowWorkSection: (show: boolean) => void;
   setShowPinnedSection: (show: boolean) => void;
-  setDetailedZoneRows: (detailed: boolean) => void;
+  setDetailedRows: (mode: DetailedRowsMode) => void;
   setShowArchivedSessions: (show: boolean) => void;
   toggleArchivedSessions: () => void;
   setProjectSortOrder: (order: ProjectSortOrder) => void;
@@ -61,6 +66,7 @@ export const migrateSessionDisplayState = (
     sessionGroupingMode?: string;
     stickyZoneHeaders?: boolean;
     showRecentSection?: boolean;
+    detailedZoneRows?: boolean;
   };
   if (version < 2) {
     state.projectSortOrder = 'manual';
@@ -95,8 +101,19 @@ export const migrateSessionDisplayState = (
   }
   if (version < 11) {
     // v11 turns the Pinned band on: pinning a session then moves it into a
-    // section the user can see (ChatGPT/Codex-style 置顶 at the top).
+    // section the user can see (ChatGPT/Codex-style 置顶 at the top). It also
+    // flips the running mark's default to the spinner, so drop a stale
+    // `false` and let the new default reach existing users.
     state.showPinnedSection = true;
+    delete state.animatedActivityIndicators;
+  }
+  if (version < 12) {
+    // v12 turns the Detailed rows toggle into auto/on/off. The old boolean
+    // kept rows compact unless asked, so `true` is the user who wanted the
+    // two-line form and `false` (and missing) stay on the automatic rule.
+    const legacyDetailed = state.detailedZoneRows;
+    delete state.detailedZoneRows;
+    state.detailedRows = legacyDetailed === true ? 'on' : 'auto';
   }
   return state;
 };
@@ -122,7 +139,8 @@ export const useSessionDisplayStore = create<SessionDisplayStore>()(
       // Pinned band is on by default (ChatGPT/Codex-style 置顶 at the top);
       // pinning a session then moves it into a section the user can see.
       showPinnedSection: true,
-      detailedZoneRows: false,
+      // Auto: the second line appears only when it has visible text.
+      detailedRows: 'auto',
       // Default to HIDDEN so the pre-hydration state matches the quiet/safe
       // option: archived sessions must never flash visible on startup and then
       // disappear once the persisted preference rehydrates.
@@ -132,7 +150,7 @@ export const useSessionDisplayStore = create<SessionDisplayStore>()(
       setShowChatsSection: (show) => set({ showChatsSection: show }),
       setShowWorkSection: (show) => set({ showWorkSection: show }),
       setShowPinnedSection: (show) => set({ showPinnedSection: show }),
-      setDetailedZoneRows: (detailed) => set({ detailedZoneRows: detailed }),
+      setDetailedRows: (mode) => set({ detailedRows: mode }),
       setShowArchivedSessions: (show) => set({ showArchivedSessions: show }),
       toggleArchivedSessions: () => set((state) => ({ showArchivedSessions: !state.showArchivedSessions })),
       setProjectSortOrder: (order) => set({ projectSortOrder: order }),
@@ -140,7 +158,7 @@ export const useSessionDisplayStore = create<SessionDisplayStore>()(
     }),
     {
       name: 'session-display-mode',
-      version: 11,
+      version: 12,
       // v1→v2 adds projectSortOrder using the canonical manual ordering.
       // v2→v3 replaces the previously shipped recent default with manual.
       // v3→v4 removes displayMode (single sidebar row layout).
@@ -151,12 +169,14 @@ export const useSessionDisplayStore = create<SessionDisplayStore>()(
       // v8→v9 adds worktreeSortOrder (manual by default).
       // v9→v10 drops showRecentSection (Recent is gone).
       // v10→v11 turns the Pinned band on by default.
+      // v11→v12 turns Detailed rows into auto/on/off (auto is the default).
       migrate: migrateSessionDisplayState,
     },
   ),
 );
 
 export type {
+  DetailedRowsMode,
   ProjectSortOrder,
   WorktreeSortOrder
 };

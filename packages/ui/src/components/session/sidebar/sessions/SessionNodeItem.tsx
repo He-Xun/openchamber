@@ -43,7 +43,7 @@ import { getSyncSessionMaterializationStatus } from '@/sync/sync-refs';
 import { useViewportStore, viewportSessionKey } from '@/sync/viewport-store';
 import { DraggableSessionRow } from '../folders/sessionFolderDnd';
 import { useSessionRowOrderRegistry } from './sessionRowOrder';
-import { canShowSessionWorktreeMenu, getSessionWorktreeMenuDisabled, nodeContainsSessionId, nodeHasPinnedMembershipChange, resolveSessionPrLookup, resolveTooltipBranchLabel, selectBlockingBadgeSessionScopes, sessionHasSecondLineText, type BlockingBadgeSessionScope } from './sessionNodeItemUtils';
+import { canShowSessionWorktreeMenu, getSessionWorktreeMenuDisabled, nodeContainsSessionId, nodeHasPinnedMembershipChange, resolveSessionHasSecondLine, resolveSessionPrLookup, resolveTooltipBranchLabel, selectBlockingBadgeSessionScopes, type BlockingBadgeSessionScope } from './sessionNodeItemUtils';
 import { useSessionRowMenuState } from './useSessionRowMenuState';
 import { buildActiveSessionTreeFromCache, collectSessionMoveDescendants } from './sessionSubtreeActions';
 import type { SessionNode } from '../types';
@@ -690,13 +690,16 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
       </span>
     </RowMarkTooltip>
   ) : null;
-  // Codex-style, every section (Chats/Pinned/Projects/In work): a row keeps
-  // one line when its second line would be empty or only a glyph (the project
-  // icon's label is a tooltip, not visible text). It grows to two lines for
-  // real visible text — a branch or a tracker ref (session-linked PR / MR /
-  // issue, or one a worktree's branch + path can surface). The shared
-  // predicate keeps `sessionHasSecondLineMeta`'s height estimate in step.
-  const hasSecondLineContent = sessionHasSecondLineText(
+  // Codex-style, every section (Chats/Pinned/Projects/In work): under the
+  // default "Detailed rows: auto" a row keeps one line when its second line
+  // would be empty or only a glyph (the project icon's label is a tooltip,
+  // not visible text), and grows to two for real visible text — a branch or a
+  // tracker ref (session-linked PR / MR / issue, or one a worktree's branch +
+  // path can surface). "On" and "off" force that choice. The shared resolver
+  // keeps `sessionHasSecondLineMeta`'s height estimate in step.
+  const detailedRows = useSessionDisplayStore((state) => state.detailedRows);
+  const hasSecondLineContent = resolveSessionHasSecondLine(
+    detailedRows,
     session,
     secondaryMeta,
     node.worktree?.branch ?? null,

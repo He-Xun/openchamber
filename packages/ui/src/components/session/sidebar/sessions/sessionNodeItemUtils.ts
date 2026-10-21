@@ -391,6 +391,30 @@ export const sessionHasSecondLineText = (
 };
 
 /**
+ * Display menu's "Detailed rows" choice. `auto` is the Codex-style rule
+ * (`sessionHasSecondLineText`); `on` and `off` force the second line so a
+ * user who wants a uniform list can pin it either way.
+ */
+export type DetailedRowsMode = 'auto' | 'on' | 'off';
+
+/**
+ * Whether a row grows a second line under the user's Detailed rows choice.
+ * Shared by the row model's height estimate and `SessionNodeItem`'s render so
+ * the virtualizer never reserves a different height than the row draws.
+ */
+export const resolveSessionHasSecondLine = (
+  mode: DetailedRowsMode,
+  session: Session | null | undefined,
+  meta: { branchLabel?: string | null } | null | undefined,
+  worktreeBranch: string | null | undefined,
+  options: { includeLinkedRefs?: boolean } = {},
+): boolean => {
+  if (mode === 'on') return true;
+  if (mode === 'off') return false;
+  return sessionHasSecondLineText(session, meta, worktreeBranch, options);
+};
+
+/**
  * The worktree directory and branch whose change request a row shows. The
  * row's worktree is the only source of the pair; VS Code renders no PR badges.
  */

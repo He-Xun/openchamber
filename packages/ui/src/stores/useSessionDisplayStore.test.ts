@@ -80,6 +80,17 @@ describe('useSessionDisplayStore view mode', () => {
     expect(useSessionDisplayStore.getState().sidebarViewMode).toBe('timeline');
   });
 
+  test('v10→v11 turns the Pinned band on and lets the spinner default reach old users', () => {
+    const migrated = migrateSessionDisplayState(
+      { showPinnedSection: false, animatedActivityIndicators: false, projectSortOrder: 'a-z' },
+      10,
+    );
+
+    expect(migrated.showPinnedSection).toBe(true);
+    expect('animatedActivityIndicators' in migrated).toBe(false);
+    expect(migrated.projectSortOrder).toBe('a-z');
+  });
+
   test('v9→v10 drops the removed Recent toggle and keeps the rest', () => {
     const migrated = migrateSessionDisplayState({ showRecentSection: true, projectSortOrder: 'a-z' }, 9);
 
@@ -94,6 +105,27 @@ describe('useSessionDisplayStore view mode', () => {
     );
 
     expect('sessionGroupingMode' in migrated).toBe(false);
+    expect(migrated.projectSortOrder).toBe('a-z');
+  });
+});
+
+
+describe('useSessionDisplayStore detailed rows', () => {
+  test('defaults to auto', () => {
+    expect(useSessionDisplayStore.getState().detailedRows).toBe('auto');
+  });
+
+  test('v11→v12 maps the legacy boolean: true to on, false and missing to auto', () => {
+    expect(migrateSessionDisplayState({ detailedZoneRows: true }, 11).detailedRows).toBe('on');
+    expect(migrateSessionDisplayState({ detailedZoneRows: false }, 11).detailedRows).toBe('auto');
+    expect(migrateSessionDisplayState({}, 11).detailedRows).toBe('auto');
+  });
+
+  test('v11→v12 drops the legacy boolean key', () => {
+    const migrated = migrateSessionDisplayState({ detailedZoneRows: true, projectSortOrder: 'a-z' }, 11);
+
+    expect('detailedZoneRows' in migrated).toBe(false);
+    expect(migrated.detailedRows).toBe('on');
     expect(migrated.projectSortOrder).toBe('a-z');
   });
 });
@@ -114,7 +146,7 @@ describe('useSessionDisplayStore animated activity', () => {
       await useSessionDisplayStore.persist.rehydrate();
       expect(useSessionDisplayStore.getState().animatedActivityIndicators).toBe(true);
       expect(useSessionDisplayStore.getState().sidebarViewMode).toBe('timeline');
-      expect(useSessionDisplayStore.persist.getOptions().version).toBe(11);
+      expect(useSessionDisplayStore.persist.getOptions().version).toBe(12);
       useSessionDisplayStore.getState().setAnimatedActivityIndicators(true);
       const enabledSnapshot = stored;
       useSessionDisplayStore.setState({ animatedActivityIndicators: false });

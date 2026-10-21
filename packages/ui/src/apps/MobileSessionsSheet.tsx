@@ -188,6 +188,13 @@ const LIST_GROUPING_OPTIONS = [
 
 type ListSessionGrouping = (typeof LIST_GROUPING_OPTIONS)[number][0];
 
+// Same three choices as the desktop sidebar's Detailed rows submenu.
+const DETAILED_ROWS_OPTIONS = [
+  ['auto', 'sessions.sidebar.header.displayMode.detailedRows.auto'],
+  ['on', 'sessions.sidebar.header.displayMode.detailedRows.on'],
+  ['off', 'sessions.sidebar.header.displayMode.detailedRows.off'],
+] as const;
+
 /** Menu rows tall enough for a thumb. */
 const MOBILE_MENU_ITEM_CLASS = 'min-h-10 items-center justify-between';
 
@@ -856,8 +863,8 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
   const setShowWorkSection = useSessionDisplayStore((state) => state.setShowWorkSection);
   const showPinnedSection = useSessionDisplayStore((state) => state.showPinnedSection);
   const setShowPinnedSection = useSessionDisplayStore((state) => state.setShowPinnedSection);
-  const detailedZoneRows = useSessionDisplayStore((state) => state.detailedZoneRows);
-  const setDetailedZoneRows = useSessionDisplayStore((state) => state.setDetailedZoneRows);
+  const detailedRows = useSessionDisplayStore((state) => state.detailedRows);
+  const setDetailedRows = useSessionDisplayStore((state) => state.setDetailedRows);
     // Branch per directory, for the second line of timeline-style rows (In
   // work, the List view): worktree sessions read their worktree's
   // branch, root sessions the project root's checked-out branch, which only
@@ -1709,10 +1716,9 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
     void updateDesktopSettings({ sidebarShowPinnedSection: next });
   };
 
-  const handleToggleDetailedZoneRows = () => {
-    const next = !detailedZoneRows;
-    setDetailedZoneRows(next);
-    void updateDesktopSettings({ sidebarDetailedZoneRows: next });
+  const handleDetailedRowsChange = (mode: 'auto' | 'on' | 'off') => {
+    setDetailedRows(mode);
+    void updateDesktopSettings({ sidebarDetailedRows: mode });
   };
 
   /** One choice or switch in the display menu, checked when it is in effect. */
@@ -1823,7 +1829,7 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
   // branch and project context resolve whenever the list (not search or
   // reorder) is on screen.
   const listActive = !normalizedQuery && !editingOrder;
-  const compactZoneRows = sidebarViewMode !== 'timeline' && !detailedZoneRows;
+  const compactZoneRows = sidebarViewMode !== 'timeline' && detailedRows !== 'on';
   const needsTimelineContext = timelineActive || (listActive && (workBucket.sessions.length > 0 || pinnedBucket.sessions.length > 0));
 
   // The git store only knows directories something asked about. The grouped
@@ -2239,8 +2245,14 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
         <DropdownMenuSeparator />
         {renderMenuChoice('pinned', 'sessions.sidebar.header.displayMode.showPinned', showPinnedSection, handleTogglePinnedSection)}
         {sessionWorkEnabled ? renderMenuChoice('work', 'sessions.sidebar.header.displayMode.showWork', showWorkSection, handleToggleWorkSection) : null}
-        {/* List rows always carry two lines; Tree keeps Pinned and In work on one unless asked. */}
-        {sidebarViewMode === 'timeline' ? null : renderMenuChoice('detailed', 'sessions.sidebar.header.displayMode.detailedZoneRows', detailedZoneRows, handleToggleDetailedZoneRows)}
+        {/* List rows always carry two lines; Tree's second line follows this choice. */}
+        {sidebarViewMode === 'timeline' ? null : (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>{t('sessions.sidebar.header.displayMode.detailedRows.label')}</DropdownMenuLabel>
+            {DETAILED_ROWS_OPTIONS.map(([mode, labelKey]) => renderMenuChoice(mode, labelKey, detailedRows === mode, () => handleDetailedRowsChange(mode)))}
+          </>
+        )}
         {canEditOrder ? (
           <>
             <DropdownMenuSeparator />

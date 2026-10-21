@@ -111,25 +111,25 @@ export const UI_FONT_OPTIONS: FontOptionDefinition<UiFontOption>[] = [
     {
         id: 'misans',
         label: 'MiSans',
-        description: '小米中文字体，界面中英混排均匀、现代。未安装时回退到雅黑/苹方。',
+        description: 'Xiaomi CJK UI font with even Chinese/Latin mix; falls back to YaHei/PingFang when not installed.',
         stack: '"MiSans", "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif'
     },
     {
         id: 'microsoft-yahei',
         label: '微软雅黑',
-        description: 'Windows 默认中文字体，屏幕阅读清晰，覆盖面广。',
+        description: 'Default Windows Chinese UI font; clear on screen with wide coverage.',
         stack: '"Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Segoe UI", sans-serif'
     },
     {
         id: 'pingfang-sc',
         label: '苹方',
-        description: 'macOS 系统中文字体，字重完整，排版干净。',
+        description: 'macOS system Chinese UI font; complete weights and clean metrics.',
         stack: '"PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Hiragino Sans GB", sans-serif'
     },
     {
         id: 'source-han-sans',
         label: '思源黑体',
-        description: '开源中日韩黑体（Noto Sans SC），字形中性；按需从网络加载，未装也能显示。',
+        description: 'Open-source CJK sans (Noto Sans SC); neutral shapes, loaded from the network when missing locally.',
         stack: '"Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif',
         source: {
             family: 'Noto Sans SC',
@@ -205,7 +205,7 @@ export const CODE_FONT_OPTIONS: FontOptionDefinition<MonoFontOption>[] = [
     {
         id: 'sarasa-mono-sc',
         label: '更纱黑体 Mono SC',
-        description: '等宽中文字体，中英等宽对齐；优先使用本机安装的 Sarasa，中文回退到网络加载的 Noto Sans SC。',
+        description: 'CJK monospace with even Chinese/Latin advance widths; prefers a local Sarasa install, falls back to network Noto Sans SC.',
         stack: '"Sarasa Mono SC", "Noto Sans Mono CJK SC", "Sarasa Mono", "Noto Sans SC", "Microsoft YaHei Mono", "Cascadia Mono", monospace',
         source: {
             family: 'Noto Sans SC',
@@ -216,7 +216,7 @@ export const CODE_FONT_OPTIONS: FontOptionDefinition<MonoFontOption>[] = [
     {
         id: 'noto-sans-mono-cjk',
         label: 'Noto Sans Mono CJK',
-        description: '开源 CJK 等宽风格（网络加载 Noto Sans SC 作中文回退），中英文宽度稳定。',
+        description: 'Open-source CJK monospace style (network Noto Sans SC as the Chinese fallback); stable Latin/CJK widths.',
         stack: '"Noto Sans Mono CJK SC", "Noto Sans Mono CJK", "Sarasa Mono SC", "Noto Sans SC", "Microsoft YaHei", "Cascadia Mono", monospace',
         source: {
             family: 'Noto Sans SC',

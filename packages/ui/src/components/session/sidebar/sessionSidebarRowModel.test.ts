@@ -95,11 +95,11 @@ describe('buildSessionSidebarRowModel', () => {
     expect(new Set(model.rows.map((row) => row.key)).size).toBe(model.rows.length);
   });
 
-  test('zone rows stay one line even with detailed zone rows on', () => {
+  test('zone rows keep the tree render context under every Detailed rows choice', () => {
     const input = args([project([group([node('working')])])]);
     input.workItems = [timelineItem('working')];
     input.zoneSessionIds = new Set(['working']);
-    input.detailedZoneRows = true;
+    input.detailedRows = 'on';
 
     const rows = buildSessionSidebarRowModel(input).rows;
     const workHeader = rows.findIndex((row) => row.kind === 'activity-header' && row.activityKey === 'work');
@@ -158,6 +158,26 @@ describe('buildSessionSidebarRowModel', () => {
     expect(rows.map((row) => (row.kind === 'session' ? `${row.renderContext}:${row.node.session.id}` : row.displayName))).toEqual([
       'Outer', 'project:in-folder', 'project:top-level', 'mixed-compact:in-folder',
     ]);
+  });
+
+  test('a pin lifts inside its project but never reshuffles a folder', () => {
+    const input = args([project([group([
+      node('filed-first'),
+      node('filed-pinned'),
+      node('root-pinned'),
+      node('root-other'),
+    ])])]);
+    input.foldersMap = {
+      '/repo': [{ id: 'f', name: 'Filed', createdAt: 1, sessionIds: ['filed-first', 'filed-pinned'] }],
+    };
+    input.pinnedSessionIds = pinnedIds('filed-pinned', 'root-pinned');
+
+    const rows = buildSessionSidebarRowModel(input).rows
+      .filter((row) => row.kind === 'folder-header' || row.kind === 'session')
+      .map((row) => (row.kind === 'session' ? row.node.session.id : row.displayName));
+
+    // Folder contents keep the filed order; the project's own list lifts its pin.
+    expect(rows).toEqual(['Filed', 'filed-first', 'filed-pinned', 'root-pinned', 'root-other']);
   });
 
   test('search lists a session in work once, in the work block, and counts the tree once', () => {
@@ -697,6 +717,31 @@ describe('buildSessionSidebarRowModel', () => {
     expect(byId.get('branched')?.estimateSize).toBe(52);
     // Two lines (52) for a session-linked ref with no branch and no worktree.
     expect(byId.get('linked')?.estimateSize).toBe(52);
+  });
+
+  test('Detailed rows: on and off force the second line; auto keeps the content rule', () => {
+    const input = args([project([group([node('plain'), node('branched')])])]);
+    input.viewMode = 'timeline';
+    input.timelineItems = [
+      { ...timelineItem('plain'), node: node('plain'), secondaryMeta: { projectLabel: 'repo', branchLabel: null } },
+      { ...timelineItem('branched'), node: node('branched'), secondaryMeta: { projectLabel: 'repo', branchLabel: 'feature' } },
+    ];
+    const estimates = () => {
+      const sessions = buildSessionSidebarRowModel(input).rows.filter((row) => row.kind === 'session');
+      return new Map(sessions.map((row) => [row.node.session.id, row.estimateSize]));
+    };
+
+    input.detailedRows = 'auto';
+    expect(estimates().get('plain')).toBe(36);
+    expect(estimates().get('branched')).toBe(52);
+
+    input.detailedRows = 'on';
+    expect(estimates().get('plain')).toBe(52);
+    expect(estimates().get('branched')).toBe(52);
+
+    input.detailedRows = 'off';
+    expect(estimates().get('plain')).toBe(36);
+    expect(estimates().get('branched')).toBe(36);
   });
 
   for (const viewMode of ['projects', 'timeline'] as const) {

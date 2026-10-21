@@ -165,8 +165,8 @@ export function SidebarHeader(props: Props): React.ReactNode {
   const setShowWorkSection = useSessionDisplayStore((state) => state.setShowWorkSection);
   const showPinnedSection = useSessionDisplayStore((state) => state.showPinnedSection);
   const setShowPinnedSection = useSessionDisplayStore((state) => state.setShowPinnedSection);
-  const detailedZoneRows = useSessionDisplayStore((state) => state.detailedZoneRows);
-  const setDetailedZoneRows = useSessionDisplayStore((state) => state.setDetailedZoneRows);
+  const detailedRows = useSessionDisplayStore((state) => state.detailedRows);
+  const setDetailedRows = useSessionDisplayStore((state) => state.setDetailedRows);
   const sessionWorkEnabled = useUIStore((state) => state.sessionWorkEnabled);
   const projectSortOrder = useSessionDisplayStore((state) => state.projectSortOrder);
   const setProjectSortOrder = useSessionDisplayStore((state) => state.setProjectSortOrder);
@@ -301,10 +301,14 @@ export function SidebarHeader(props: Props): React.ReactNode {
         setShowWorkSection(!showWorkSection);
         void updateDesktopSettings({ sidebarShowWorkSection: !showWorkSection });
       }) : null}
-      {/* List rows always carry two lines; Tree keeps Pinned and In work on one unless asked. */}
-      {!timelineView ? toggleItem('sessions.sidebar.header.displayMode.detailedZoneRows', detailedZoneRows, () => {
-        setDetailedZoneRows(!detailedZoneRows);
-        void updateDesktopSettings({ sidebarDetailedZoneRows: !detailedZoneRows });
+      {/* List rows always carry two lines; Tree's second line follows this choice. */}
+      {!timelineView ? choiceSubmenu('sessions.sidebar.header.displayMode.detailedRows.label', [
+        ['auto', 'sessions.sidebar.header.displayMode.detailedRows.auto'],
+        ['on', 'sessions.sidebar.header.displayMode.detailedRows.on'],
+        ['off', 'sessions.sidebar.header.displayMode.detailedRows.off'],
+      ] as const, detailedRows, (mode) => {
+        setDetailedRows(mode);
+        void updateDesktopSettings({ sidebarDetailedRows: mode });
       }) : null}
     </>);
   }

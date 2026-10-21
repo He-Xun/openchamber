@@ -31,9 +31,9 @@ const PREVIEW_MAX_CHARS = 160;
 // of user bubbles (expand/collapse).
 const GUTTER_WIDTH_PX = 28;
 const GUTTER_NARROW_WIDTH_PX = 12;
-// Keeps the ticks a visible gap away from the chat's overlay scrollbar thumb
-// (6px wide, 4px from the edge).
-const GUTTER_RIGHT_OFFSET_PX = 14;
+// Clearance from the chat's right edge so ticks stay a visible gap away from
+// the overlay scrollbar thumb (6px wide, 4px from the edge).
+const GUTTER_SCROLLBAR_CLEARANCE_PX = 14;
 // The rail shows at most a window of ticks; hovering the gutter edges
 // carousels the window through the rest of the prompts.
 const MAX_VISIBLE_TICKS = 30;
@@ -128,7 +128,7 @@ export function PromptNavigatorRail({
             }
             const containerRect = container.getBoundingClientRect();
             const columnRect = column.getBoundingClientRect();
-            const gutterOuter = GUTTER_RIGHT_OFFSET_PX + GUTTER_WIDTH_PX;
+            const gutterOuter = GUTTER_SCROLLBAR_CLEARANCE_PX + GUTTER_WIDTH_PX;
             if (direction === 'rtl') {
                 // Gutter on the physical right: shrink when the column
                 // reaches past its inner edge.

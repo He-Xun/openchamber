@@ -369,7 +369,7 @@ export const SETTINGS_REGISTRY = {
   sidebarShowChatsSection: field({ scope: 'profile', perSurface: true, parse: parseBoolean, ui: sessionDisplayField('showChatsSection') }),
   sidebarShowWorkSection: field({ scope: 'profile', perSurface: true, parse: parseBoolean, ui: sessionDisplayField('showWorkSection') }),
   sidebarShowPinnedSection: field({ scope: 'profile', perSurface: true, parse: parseBoolean, ui: sessionDisplayField('showPinnedSection') }),
-  sidebarDetailedZoneRows: field({ scope: 'profile', perSurface: true, parse: parseBoolean, ui: sessionDisplayField('detailedZoneRows') }),
+  sidebarDetailedRows: field({ scope: 'profile', perSurface: true, parse: parseOneOf(['auto', 'on', 'off']), ui: sessionDisplayField('detailedRows') }),
 
   // ── Work status ──
   workStatusSectionOrder: field({
