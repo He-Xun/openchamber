@@ -1,5 +1,6 @@
 import React from 'react';
 import { toast } from '@/components/ui';
+import { Icon } from '@/components/icon/Icon';
 import { useI18n } from '@/lib/i18n';
 import { useDeviceInfo } from '@/lib/device';
 import { isDesktopShell, isVSCodeRuntime } from '@/lib/desktop';
@@ -661,9 +662,7 @@ const SessionSidebarComponent: React.FC<SessionSidebarProps> = ({
             onClick={() => openNewSessionDraftFromTree()}
             className="group flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-start typography-ui-label text-muted-foreground hover:bg-interactive-hover/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
           >
-            <svg viewBox="0 0 16 16" className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-              <path d="M11.5 2.5l2 2L5 13H3v-2L11.5 2.5z" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <Icon name="pencil" className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
             <span className="truncate">{t('sessions.sidebar.header.actions.newSession')}</span>
           </button>
         </div>

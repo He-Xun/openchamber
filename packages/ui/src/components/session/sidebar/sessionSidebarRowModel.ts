@@ -248,11 +248,22 @@ const estimateSessionRow = (context: SessionSidebarRenderContext, hasSecondLine 
   return hasSecondLine ? TIMELINE_SESSION_ESTIMATE : SESSION_ESTIMATE;
 };
 
-/** Second-line meta a session row will show as visible text (Codex-style two-line rows). */
+/**
+ * Whether a session row grows a second line (Codex-style two-line rows).
+ * Must mirror `SessionNodeItem`'s `hasSecondLineContent`: the resolved branch
+ * (an explicit `null` in `meta.branchLabel` filters the worktree fallback),
+ * or a tracker ref — which arrives from the worktree's branch + path, so a
+ * worktree counts even while its ref is still loading. Keeping the two
+ * predicates identical stops the virtualizer from reserving one height and
+ * rendering another.
+ */
 const sessionHasSecondLineMeta = (
   node: SessionNode,
   meta: { projectLabel?: string | null; branchLabel?: string | null } | null | undefined,
-): boolean => Boolean(meta?.branchLabel?.trim() || node.worktree?.branch?.trim());
+): boolean => {
+  const branch = meta ? (meta.branchLabel ?? null) : (node.worktree?.branch ?? null);
+  return Boolean(branch?.trim() || node.worktree?.branch?.trim());
+};
 // Chats open on a short page in both views, with pinned chats on top of it.
 const CHATS_INITIAL_LIMIT = 3;
 const CHATS_INCREMENT = 7;
@@ -470,7 +481,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
         key: rowKey,
         estimateSize: estimateSessionRow(
           options.renderContext,
-          sessionHasSecondLineMeta(current.node, current.depth === baseDepth ? rowMeta : options.secondaryMeta),
+          sessionHasSecondLineMeta(current.node, rowMeta),
         ),
         node: current.node,
         blockingBadgeSessionScopes: current.depth === baseDepth

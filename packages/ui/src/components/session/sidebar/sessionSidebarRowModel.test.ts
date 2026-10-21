@@ -655,6 +655,33 @@ describe('buildSessionSidebarRowModel', () => {
     expect(model.rows.some((row) => row.kind === 'show-control')).toBe(false);
   });
 
+  test('second-line estimate matches the renderer: branch or worktree ref, never a lone glyph', () => {
+    // SAFETY: only the fields the row model reads are supplied.
+    const worktree = { branch: 'feature', path: '/wt' } as SessionNode['worktree'];
+    const worktreeNode = (id: string): SessionNode => ({ session: session(id), children: [], worktree });
+    const input = args([project([group([
+      node('plain'),
+      worktreeNode('worktree'),
+    ])])]);
+    input.viewMode = 'timeline';
+    input.timelineItems = [
+      // Explicit null branchLabel filters the worktree fallback: still two
+      // lines here only because the node itself is not a worktree — one line.
+      { ...timelineItem('plain'), node: node('plain'), secondaryMeta: { projectLabel: 'repo', branchLabel: null } },
+      { ...timelineItem('worktree'), node: worktreeNode('worktree'), secondaryMeta: { projectLabel: 'repo', branchLabel: null } },
+      { ...timelineItem('branched'), node: node('branched'), secondaryMeta: { projectLabel: 'repo', branchLabel: 'feature' } },
+    ];
+
+    const sessions = buildSessionSidebarRowModel(input).rows.filter((row) => row.kind === 'session');
+    const byId = new Map(sessions.map((row) => [row.node.session.id, row]));
+
+    // One line (36) when the second line would hold only glyphs.
+    expect(byId.get('plain')?.estimateSize).toBe(36);
+    // Two lines (52) when a branch or a worktree's tracker ref is real text.
+    expect(byId.get('worktree')?.estimateSize).toBe(52);
+    expect(byId.get('branched')?.estimateSize).toBe(52);
+  });
+
   for (const viewMode of ['projects', 'timeline'] as const) {
     test(`${viewMode} mode reveals three chats and never counts pinned chats against that limit`, () => {
       const chats = [node('pinned-1'), node('pinned-2'), ...Array.from({ length: 6 }, (_, index) => node(`chat-${index}`))];

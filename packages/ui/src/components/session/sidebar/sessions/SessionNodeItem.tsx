@@ -692,11 +692,14 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   ) : null;
   // Codex-style, every section (Chats/Pinned/Projects/In work): a row keeps
   // one line when its second line would be empty or only a glyph (the project
-  // icon's label is a tooltip, not visible text). It grows to two lines only
-  // for real visible text — a branch or a tracker ref.
+  // icon's label is a tooltip, not visible text). It grows to two lines for
+  // real visible text — a branch or a tracker ref. A worktree always counts:
+  // its ref may still be loading, and `sessionHasSecondLineMeta` reserves the
+  // same height so the virtualizer never disagrees with the render.
   const hasSecondLineContent = Boolean(
     tooltipBranchLabel?.trim()
-    || (primaryRef && primaryRef.label?.trim()),
+    || (primaryRef && primaryRef.label?.trim())
+    || node.worktree?.branch?.trim(),
   );
   const isOneLineTimelineRow = !isMultiLineContext && !hasSecondLineContent;
   // Project-tree rows without a second line keep the gutter layout (state and

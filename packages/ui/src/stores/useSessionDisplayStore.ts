@@ -25,14 +25,14 @@ type SessionDisplayStore = {
   setSidebarViewMode: (mode: SidebarViewMode) => void;
   listSessionGrouping: ListSessionGrouping;
   setListSessionGrouping: (grouping: ListSessionGrouping) => void;
-  /** Local display preference; motion remains opt-in. */
+  /** Local display preference; the animated spinner is on by default (v11). */
   animatedActivityIndicators: boolean;
   setAnimatedActivityIndicators: (enabled: boolean) => void;
   /** The managed Chats block in the sidebar (web and desktop). */
   showChatsSection: boolean;
   /** The In work block; hidden, its sessions stay in their projects. */
   showWorkSection: boolean;
-  /** The Pinned block above In work; off by default. Hidden, pinned sessions stay in their projects. */
+  /** The Pinned block above Chats; on by default (v11). Pinned sessions stay under their project too. */
   showPinnedSection: boolean;
   /** Pinned and In work rows in the Tree view: one line by default, two with branch, PR and model when set. */
   detailedZoneRows: boolean;

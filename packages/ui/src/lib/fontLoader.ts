@@ -17,9 +17,15 @@ const buildFontUrl = (source: FontFaceSource, weight: number) => {
   return `https://cdn.jsdelivr.net/npm/${packageName}/files/${source.filePrefix}-latin-${weight}-normal.woff2`;
 };
 
-/** A stylesheet with its own @font-face rules (CJK subsets). Network-loaded only. */
-const loadCssSource = (source: { family: string; cssUrl: string }): Promise<void> => {
-  const key = `css:${source.cssUrl}`;
+/**
+ * Stylesheets with their own @font-face rules (CJK subsets). Network-loaded
+ * only. Fontsource publishes one stylesheet per weight (`400.css`, `500.css`,
+ * …) beside `index.css` (which is just 400), so each declared weight loads
+ * its own file — otherwise `font-synthesis-weight: none` would leave medium
+ * and semibold CJK silently rendering regular.
+ */
+const loadOneCss = (url: string, family: string): Promise<void> => {
+  const key = `css:${url}`;
   if (loadedCss.has(key)) return Promise.resolve();
   const pending = pendingCss.get(key);
   if (pending) return pending;
@@ -29,7 +35,7 @@ const loadCssSource = (source: { family: string; cssUrl: string }): Promise<void
       resolve();
       return;
     }
-    const existing = document.querySelector<HTMLLinkElement>(`link[data-font-css="${source.cssUrl}"]`);
+    const existing = document.querySelector<HTMLLinkElement>(`link[data-font-css="${url}"]`);
     if (existing) {
       loadedCss.add(key);
       resolve();
@@ -37,14 +43,14 @@ const loadCssSource = (source: { family: string; cssUrl: string }): Promise<void
     }
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = source.cssUrl;
-    link.setAttribute('data-font-css', source.cssUrl);
+    link.href = url;
+    link.setAttribute('data-font-css', url);
     link.onload = () => {
       loadedCss.add(key);
       resolve();
     };
     link.onerror = () => {
-      console.warn(`Failed to load font stylesheet: ${source.family}`, source.cssUrl);
+      console.warn(`Failed to load font stylesheet: ${family}`, url);
       resolve();
     };
     document.head.appendChild(link);
@@ -54,6 +60,12 @@ const loadCssSource = (source: { family: string; cssUrl: string }): Promise<void
 
   pendingCss.set(key, promise);
   return promise;
+};
+
+/** Load every declared weight: fontsource ships one stylesheet per weight. */
+const loadCssSource = (source: { family: string; cssUrl: string; weights: readonly number[] }): Promise<void> => {
+  const dir = source.cssUrl.replace(/\/[^/]*$/, '');
+  return Promise.all(source.weights.map((weight) => loadOneCss(`${dir}/${weight}.css`, source.family))).then(() => undefined);
 };
 
 const loadFace = (source: FontFaceSource, weight: number) => {

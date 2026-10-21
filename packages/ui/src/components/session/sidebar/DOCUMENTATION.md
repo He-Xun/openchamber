@@ -55,21 +55,23 @@ the global cache or persisted history. A failed global or directory fetch keeps
 existing data; it is never treated as an authoritative empty list.
 
 Activity indicators use `SessionActivityIndicator` in project and timeline rows,
-header tabs, switchers and collapsed aggregates. Each state is a static icon:
-the session's own run is `circle`, a pause held open by a background subagent
-is `robot`, one held open by a background command is `terminal` (all info
-color; `useSessionTurnActivity` in `sync/global-session-status.ts` decides, the
-session's own run first, then the subagent), and a finished unseen turn is
-`checkbox-circle` (success color). Collapsed aggregates show only running or
-unread. The local Appearance preference `animatedActivityIndicators`
-is off by default. Enabling it swaps every running kind for a stepped spinner,
-even when the OS requests reduced motion; the unread icon stays. Permission/question badges and per-session
+header tabs, switchers and collapsed aggregates. Running kinds (the session's
+own run, a pause held open by a background subagent, one held open by a
+background command; `useSessionTurnActivity` in `sync/global-session-status.ts`
+decides, the session's own run first, then the subagent) show a stepped
+spinner when the local Appearance preference `animatedActivityIndicators` is
+on — the default — and their own static icons (`circle`, `robot`, `terminal`;
+info color) when it is off. A finished unseen turn is always a small solid
+blue dot (Codex-style), never a status glyph. Collapsed aggregates show only
+running or unread. The spinner plays even when the OS requests reduced motion;
+the unread dot is static. Permission/question badges and per-session
 elapsed counters retain their existing precedence and behavior. A session
 row's title carries its state too: semibold at full strength while a finished
 turn is unseen or a permission or question waits on the user, full strength
 while it runs, muted otherwise; the active row keeps the selection colors. The display
-store is at version 10 (v10 dropped the Recent toggle): missing preferences inherit the default during hydration,
-while an explicitly saved choice survives reload.
+store is at version 11 (v11 turned the Pinned band on by default): missing
+preferences inherit the default during hydration, while an explicitly saved
+choice survives reload.
 
 Full-app active records remain in the collection when their directory is no
 longer in known topology, such as a deleted worktree. Grouping first uses
@@ -86,7 +88,8 @@ In work, and Timeline use this same ownership resolver; rows keep the session's
 own directory while taking display ownership (project id, labels) from the
 index.
 
-Web and desktop show managed Chats, then In work, then the projects. There is
+Web and desktop show Pinned, then managed Chats, then the projects, then In
+work. There is
 no Recent zone any more (removed 2026-10): In work holds the sessions being
 worked on, and the List view sorted by time answers "what was I doing" across
 projects. Chats use
@@ -253,8 +256,10 @@ default) shows it. With the zone hidden its sessions stay in their projects.
 in its project group and folders, in both views, so it appears in two places.
 Search lists it once, in the work block. Chats are never in work
 and offer no Track action. An empty zone is not rendered. In List, rows use
-`renderContext: 'timeline-mixed'`: two lines, the project's icon before the
-branch; sorted by time, the list's three-line `'timeline-by-time'` rows. In Tree they use `'mixed-compact'` by default: one line like a Chats
+`renderContext: 'mixed-compact'`: one line like a Chats
+row, growing to two lines when the second line has real text (branch or
+tracker ref); sorted by time, the list's three-line `'timeline-by-time'` rows.
+In Tree they also use `'mixed-compact'`: one line like a Chats
 row, the PR or issue as a coloured mark without its number (its tooltip lists
 the links), the branch, project and model in the whole-row tooltip. The display
 menu's Detailed rows toggle (`detailedZoneRows`, `sidebarDetailedZoneRows`, per
@@ -366,18 +371,20 @@ all / Expand all.
 - Zone collapse state lives in `useSessionProjectViewState` next to project
   collapse and is saved in local storage (`oc.sessions.activityCollapse`), so
   it survives a restart like project and group collapse. The display menu's Collapse all /
-  Expand all set every project and the zones (`SIDEBAR_ACTIVITY_KEYS`: Chats,
-  Pinned, In work and the list by time) together, in both views. Session folders keep their own
+  Expand all set every project and the zones (`SIDEBAR_ACTIVITY_KEYS`: Pinned,
+  Chats, Projects, In work and the list by time) together, in both views. Session folders keep their own
   collapse state.
 - Zone and project headers are sticky in both views; there is no user toggle.
-  Both views draw the same zone headers, with the leading icon that turns
-  into the collapse chevron on hover and the Chats new-chat button; project
+  Both views draw the same zone headers — a plain label with a collapse
+  chevron, GPT-style; a zone icon beside project folder icons reads as
+  noise — and the Chats new-chat button; project
   headers are shared too, with the same hover actions and menu.
-- Below Chats, Pinned and In work it renders one project
+- Below Pinned, Chats and In work it renders one project
   header per project followed by that project's non-archived root sessions
   from every worktree and space, in the shared lifecycle order with pinned
-  sessions first; with the Pinned zone shown, its sessions are listed there
-  only. Projects keep the manual order whatever the stored project
+  sessions first. A pinned session keeps its place under its project (at its
+  top) as well as in the Pinned zone; the two listings are not exclusive.
+  Projects keep the manual order whatever the stored project
   sort: dragging a header is the timeline's only sort, and the display menu
   hides both sort sections. A project reveals 7 sessions, 7 more per Show more
   (`timelineProjectContainerKey`); collapsing it, from its header or Collapse
@@ -547,17 +554,17 @@ matching and ordering. Search does not fetch sessions or broaden list membership
   box, the archive) and shows its chevron in its place while the header is
   hovered or focused; touch layouts keep the icon and toggle on a tap. Its
   label therefore starts where root session titles start, and its sessions
-  sit one level in. On a session row it holds the live state (running kind, unread, or the
-  move/rename spinner), so the state reads down the left edge with the titles,
-  and stays empty otherwise so titles line up. A session with subsessions shows
-  its state there at rest and its chevron while the row is hovered or focused;
-  touch layouts (`alwaysShowActions`) have no hover, so a parent keeps its
-  chevron and its state goes to the right. Session rows use the one-line form
-  of `SessionTimelineRowBody`: pin, done hint and time on the right. The Tree
+  sit one level in. A session row keeps the slot for its chevron and leaves
+  the live state (running kind, unread, or the move/rename spinner) on the
+  right with the rest of the meta, so titles line up down the left edge. A
+  session with subsessions shows
+  its chevron in the slot; touch layouts (`alwaysShowActions`) have no hover,
+  so a parent keeps its chevron and its state stays on the right. Session rows use the one-line form
+  of `SessionTimelineRowBody` when their second line has no text, and grow to
+  two lines for a branch or tracker ref: pin, done hint and time on the right. The Tree
   view's one-line Chats, Pinned and In work rows (`'tree-chat'`,
   `'mixed-compact'`, session and run rows) take the same geometry at level 0
-  with the state in the slot, so it reads down one edge from the zones into
-  the projects. List rows and Tree's detailed zone rows are flat and keep the
+  with the state on the right. List rows and Tree's detailed zone rows are flat and keep the
   live state on the right. Session and run titles are muted at rest. Session
   and run rows take the same faint hover fill as timeline rows; worktree,
   space, archive and folder headers take none, so a pointer moving down the
