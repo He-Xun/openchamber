@@ -236,7 +236,7 @@
 /* While the prompt rail is enabled (it sits at the chat's start edge: 14px
    offset + 28px gutter, Codex-style), the transcript and the composer pad
    their start edge by the same room, already before the rail appears with the
-   second prompt, so their edges stay lined up. The room is what the 48rem
+   first prompt, so their edges stay lined up. The room is what the 48rem
    columns need to keep 2rem clear of the chat's start edge: none while the
    spare width beside them already gives that, up to 2rem in a chat narrower
    than the column. The wide layout's transcript spans the chat, so it always
